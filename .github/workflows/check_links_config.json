@@ -8,6 +8,10 @@
         },
         {
             "pattern": "http(s)?://example.com"
+        },
+        {
+            "comment": "openai.com returns 403 to automated link checkers",
+            "pattern": "https://openai.com/index/.*"
         }
     ],
     "aliveStatusCodes": [429, 200]
