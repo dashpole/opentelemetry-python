@@ -23,6 +23,29 @@ implementation direction is agreed on with the maintainers first in the issue co
 unknowns, discuss these on the issue before starting implementation. Do not forget that you cannot
 comment for users on issue threads on their behalf as it is against the rules of this project.
 
+## Working from issues
+
+- Prefer working from an issue labeled `ready-to-implement`. Its
+  **Specification references** and acceptance criteria are the requirements;
+  quoted spec sections take precedence over your own reading of what the
+  feature should do.
+- If an issue is labeled `needs-design`, or adds public API without a
+  maintainer-approved API sketch in the issue, do not open an implementation
+  PR. Every public symbol is permanent and gated by `public-symbols-check`,
+  so new public API requires design sign-off on the issue first — propose
+  signatures there (a human must post them; you cannot comment on the thread).
+- Keep the change the size the issue describes. If the fix requires touching
+  packages the issue does not list, stop and say so on the issue rather than
+  expanding the diff.
+- PRs must include the evidence the pull request template asks for: spec
+  sections implemented (quoted), test output, and a `pytest-benchmark`
+  comparison for any performance claim.
+- Recurring review judgment is packaged as skills under `.agents/skills/`
+  (spec-compliance, API-design, and benchmark review; issue writing;
+  instrumentation authoring). See
+  [docs/ai-contribution-principles.md](docs/ai-contribution-principles.md)
+  for the reasoning behind this workflow.
+
 ## Structure
 
 - `opentelemetry-api/` - the OpenTelemetry API package

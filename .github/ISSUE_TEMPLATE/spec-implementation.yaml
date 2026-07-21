@@ -1,0 +1,138 @@
+---
+name: Specification implementation task
+description: A fully specified implementation task, ready for a contributor (human or AI-assisted) to pick up. Authored by maintainers.
+labels: [needs-design]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Maintainer-authored template.** This produces an issue that an
+        unfamiliar contributor — very likely driving an AI coding agent — can
+        complete without extra context. Assume the issue body will be pasted
+        verbatim into an agent as its prompt: anything not written or linked
+        here effectively does not exist. See
+        [docs/ai-contribution-principles.md](https://github.com/open-telemetry/opentelemetry-python/blob/main/docs/ai-contribution-principles.md).
+
+        **Lifecycle:** the issue is born `needs-design`. Only after a
+        maintainer fills in and approves the "API design" field below,
+        replace the label with `ready-to-implement`. Never advertise a
+        `needs-design` issue to contributors.
+
+        **Sizing:** tasks confined to a single package succeed; sprawling
+        ones fail. If you cannot fill in "Where" with one package and a short
+        list of files, split this into multiple issues.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: Two or three sentences — what capability is added or fixed, and why.
+    validations:
+      required: true
+
+  - type: textarea
+    id: spec-references
+    attributes:
+      label: Specification references
+      description: |
+        Link the EXACT sections, pinned to a spec version tag (not `main`),
+        and quote the normative sentences (MUST/SHOULD/MAY) this task
+        implements. The quoted lines are the requirements; the acceptance
+        criteria below must cover each one. Write "n/a" for changes with no
+        spec surface. Reminder: this project follows "capabilities, not
+        structure compliance" (`CONTRIBUTING.md`) — match the spec's
+        behavior, not its object hierarchy.
+      placeholder: |
+        - https://github.com/open-telemetry/opentelemetry-specification/blob/v1.x.0/specification/trace/sdk.md#batching-processor
+          > "maxExportBatchSize - the maximum batch size of every export. ... The default value is 512."
+    validations:
+      required: true
+
+  - type: textarea
+    id: required-behavior
+    attributes:
+      label: Required behavior
+      description: |
+        Acceptance criteria as a checklist. Each item should be objectively
+        checkable by a test or a reviewer, and each quoted normative spec line
+        above should map to at least one item.
+      value: |
+        - [ ]
+        - [ ]
+    validations:
+      required: true
+
+  - type: textarea
+    id: non-goals
+    attributes:
+      label: Non-goals
+      description: |
+        What this task deliberately does NOT include. This is the
+        highest-leverage field for agent-driven contributions — it prevents
+        plausible-looking scope creep. Include known adjacent work and any
+        spec requirements intentionally deferred or deviated from (with a link
+        to where that decision was made).
+    validations:
+      required: true
+
+  - type: textarea
+    id: where
+    attributes:
+      label: Where
+      description: |
+        Localization anchors. Name the package, modules, and (when known) the
+        files, classes, and functions expected to change. Agents' ability to
+        find the right code collapses without this. Also state what must NOT
+        be modified.
+      value: |
+        - Package/module:
+        - Expected touch points:
+        - Do not modify:
+    validations:
+      required: true
+
+  - type: textarea
+    id: api-design
+    attributes:
+      label: API design
+      description: |
+        One of two states. The issue stays `needs-design` until a maintainer
+        approves a sketch.
+
+        STATE A — settled (required before `ready-to-implement`): paste the
+        approved signatures — new classes, functions, keyword-only options —
+        following the conventions in `CONTRIBUTING.md`. Remember every public
+        symbol is a permanent commitment gated by `public-symbols-check`.
+
+        STATE B — open: write "DESIGN OPEN — do not start implementation" and
+        list the open questions. Contributors are welcome to propose
+        signatures in comments; they must not open an implementation PR.
+      placeholder: "DESIGN OPEN — do not start implementation. Open questions: ..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance-tests
+    attributes:
+      label: Acceptance tests
+      description: |
+        The executable definition of done. Best: paste a failing test
+        (parametrized where it fits) that must pass when the task is complete.
+        Minimum: a table of test cases — name, setup/input, expected outcome —
+        covering each Required-behavior item, including error and concurrent
+        paths where relevant.
+    validations:
+      required: true
+
+  - type: textarea
+    id: verification
+    attributes:
+      label: Verification
+      description: Commands that must pass before a PR is opened. Adjust as needed.
+      value: |
+        - [ ] `tox -e ruff` (lint + format) and `tox -e typecheck` pass
+        - [ ] New/changed tests pass for the affected package (e.g. `tox -e py312-opentelemetry-sdk`)
+        - [ ] Changelog fragment added under `.changelog/` (see `CONTRIBUTING.md`)
+        - [ ] `tox -e public-symbols-check` reviewed if public API changed
+    validations:
+      required: false
