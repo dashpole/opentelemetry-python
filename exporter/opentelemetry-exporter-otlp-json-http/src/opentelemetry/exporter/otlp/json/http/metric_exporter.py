@@ -25,6 +25,7 @@ from opentelemetry.exporter.otlp.json.http._internal import (
     _resolve_headers,
     _resolve_timeout,
 )
+from opentelemetry.sdk._auth import Authenticator
 from opentelemetry.sdk.environment_variables import (
     OTEL_EXPORTER_OTLP_METRICS_CERTIFICATE,
     OTEL_EXPORTER_OTLP_METRICS_CLIENT_CERTIFICATE,
@@ -61,6 +62,7 @@ class OTLPMetricExporter(MetricExporter):
         preferred_temporality: dict[type, AggregationTemporality] | None = None,
         preferred_aggregation: dict[type, Aggregation] | None = None,
         max_export_batch_size: int | None = None,
+        _authenticator: Authenticator | None = None,
     ) -> None: ...
 
     @overload
@@ -76,6 +78,7 @@ class OTLPMetricExporter(MetricExporter):
         preferred_temporality: dict[type, AggregationTemporality] | None = None,
         preferred_aggregation: dict[type, Aggregation] | None = None,
         max_export_batch_size: int | None = None,
+        _authenticator: Authenticator | None = None,
         *,
         _transport: BaseHTTPTransport,
     ) -> None: ...
@@ -92,6 +95,7 @@ class OTLPMetricExporter(MetricExporter):
         preferred_temporality: dict[type, AggregationTemporality] | None = None,
         preferred_aggregation: dict[type, Aggregation] | None = None,
         max_export_batch_size: int | None = None,
+        _authenticator: Authenticator | None = None,
         *,
         _transport: BaseHTTPTransport | None = None,
     ) -> None:
@@ -101,6 +105,7 @@ class OTLPMetricExporter(MetricExporter):
             endpoint: Full URL of the OTLP/HTTP signal endpoint, including the signal
                 path. Example: ``http://collector:4318/v1/metrics``. For a base URL without a
                 signal path, set the ``OTEL_EXPORTER_OTLP_ENDPOINT`` environment variable.
+            authenticator: Authenticator instance for per-export dynamic authentication headers.
         """
         MetricExporter.__init__(
             self,
@@ -129,6 +134,7 @@ class OTLPMetricExporter(MetricExporter):
             else _resolve_compression(OTEL_EXPORTER_OTLP_METRICS_COMPRESSION),
             headers=_resolve_headers(headers, OTEL_EXPORTER_OTLP_METRICS_HEADERS),
             logger=_logger,
+            _authenticator=_authenticator,
         )
         self._max_export_batch_size = max_export_batch_size
         self._shutdown = False

@@ -19,6 +19,17 @@ from http import HTTPStatus
 from io import BytesIO
 from typing import TYPE_CHECKING, Final, Literal
 
+from opentelemetry.context import (
+    _SUPPRESS_INSTRUMENTATION_KEY,
+    attach,
+    detach,
+    set_value,
+)
+from opentelemetry.sdk._auth import (
+    Authenticator,
+    redact_sensitive_text,
+)
+
 if TYPE_CHECKING:
     from opentelemetry.exporter.http.transport._base import (
         BaseHTTPResult,
@@ -120,6 +131,7 @@ class _OTLPHTTPClient:
         headers: Mapping[str, str] | None = None,
         jitter: float = _DEFAULT_JITTER,
         logger: logging.Logger | None = None,
+        _authenticator: Authenticator | None = None,
     ) -> None:
         self._transport = transport
         self._endpoint = endpoint
@@ -133,6 +145,11 @@ class _OTLPHTTPClient:
         self._kind = kind
         self._jitter = min(max(jitter, 0.0), 1.0)
         self._logger = logger if logger is not None else _logger
+        if _authenticator is not None and not isinstance(_authenticator, Authenticator):
+            raise TypeError(
+                f"_authenticator must be an instance of Authenticator, got {type(_authenticator).__name__}"
+            )
+        self._authenticator = _authenticator
         self._shutdown = False
         self._shutdown_event = threading.Event()
 
@@ -149,12 +166,31 @@ class _OTLPHTTPClient:
             return zlib.compress(serialized_data)
         return serialized_data
 
+    def _resolve_request_headers(self) -> Mapping[str, str]:
+        if self._authenticator is None:
+            return self._headers
+        token = attach(set_value(_SUPPRESS_INSTRUMENTATION_KEY, True))
+        try:
+            dynamic_headers = self._authenticator.get_headers()
+        finally:
+            detach(token)
+        if not dynamic_headers:
+            return self._headers
+        dynamic_lower_keys = {key.lower() for key in dynamic_headers}
+        request_headers = {
+            key: value
+            for key, value in self._headers.items()
+            if key.lower() not in dynamic_lower_keys
+        }
+        request_headers.update(dynamic_headers)
+        return request_headers
+
     def _submit(self, data: bytes, timeout: float) -> BaseHTTPResult:
         deadline = time.time() + timeout
         result = self._transport.request(
             "POST",
             self._endpoint,
-            headers=self._headers,
+            headers=self._resolve_request_headers(),
             data=data,
             timeout=timeout,
         )
@@ -169,7 +205,7 @@ class _OTLPHTTPClient:
             result = self._transport.request(
                 "POST",
                 self._endpoint,
-                headers=self._headers,
+                headers=self._resolve_request_headers(),
                 data=data,
                 timeout=remaining,
             )
@@ -210,11 +246,16 @@ class _OTLPHTTPClient:
                     backoff = retry_after
 
             if not retryable:
+                failure_reason = reason or (
+                    redact_sensitive_text(str(export_error))
+                    if export_error is not None
+                    else "unknown"
+                )
                 self._logger.error(
                     "Failed to export %s batch code: %s, reason: %s",
                     self._kind,
                     status_code,
-                    reason or export_error or "unknown",
+                    failure_reason,
                 )
                 return _ExportResult(False, status_code, reason, export_error)
 
@@ -225,9 +266,14 @@ class _OTLPHTTPClient:
                 )
                 return _ExportResult(False, status_code, reason, export_error)
 
+            transient_reason = reason or (
+                redact_sensitive_text(str(export_error))
+                if export_error is not None
+                else "unknown"
+            )
             self._logger.warning(
                 "Transient error %s encountered while exporting %s batch, retrying in %.2fs.",
-                reason or export_error,
+                transient_reason,
                 self._kind,
                 backoff,
             )
@@ -245,4 +291,8 @@ class _OTLPHTTPClient:
             return
         self._shutdown = True
         self._shutdown_event.set()
-        self._transport.close()
+        try:
+            self._transport.close()
+        finally:
+            if self._authenticator is not None:
+                self._authenticator.shutdown()

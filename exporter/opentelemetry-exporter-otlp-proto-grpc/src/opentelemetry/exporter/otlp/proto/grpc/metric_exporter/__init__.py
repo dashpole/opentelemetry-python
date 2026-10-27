@@ -34,6 +34,7 @@ from opentelemetry.proto.common.v1.common_pb2 import (  # noqa: F401
     InstrumentationScope,
 )
 from opentelemetry.proto.metrics.v1 import metrics_pb2 as pb2  # noqa: F401
+from opentelemetry.sdk._auth import Authenticator
 from opentelemetry.sdk.environment_variables import (
     _OTEL_PYTHON_EXPORTER_OTLP_GRPC_METRICS_CREDENTIAL_PROVIDER,
     OTEL_EXPORTER_OTLP_METRICS_CERTIFICATE,
@@ -103,6 +104,7 @@ class OTLPMetricExporter(
         max_export_batch_size: int | None = None,
         channel_options: tuple[tuple[str, str]] | None = None,
         retryable_error_codes: Iterable[StatusCode] | None = None,
+        _authenticator: Authenticator | None = None,
         *,
         meter_provider: MeterProvider | None = None,
     ):
@@ -139,6 +141,7 @@ class OTLPMetricExporter(
             compression=compression,
             channel_options=channel_options,
             retryable_error_codes=retryable_error_codes,
+            _authenticator=_authenticator,
             component_type=OtelComponentTypeValues.OTLP_GRPC_METRIC_EXPORTER,
             signal="metrics",
             meter_provider=meter_provider,

@@ -37,6 +37,7 @@ from opentelemetry.proto.trace.v1.trace_pb2 import (  # noqa: F401
 from opentelemetry.proto.trace.v1.trace_pb2 import (  # noqa: F401
     Span as CollectorSpan,
 )
+from opentelemetry.sdk._auth import Authenticator
 from opentelemetry.sdk.environment_variables import (
     _OTEL_PYTHON_EXPORTER_OTLP_GRPC_TRACES_CREDENTIAL_PROVIDER,
     OTEL_EXPORTER_OTLP_TRACES_CERTIFICATE,
@@ -77,6 +78,7 @@ class OTLPSpanExporter(
         headers: Headers to send when exporting
         timeout: Backend request timeout in seconds
         compression: gRPC compression method to use
+        authenticator: Authenticator instance for per-export dynamic authentication metadata
     """
 
     def __init__(
@@ -89,6 +91,7 @@ class OTLPSpanExporter(
         compression: Compression | None = None,
         channel_options: tuple[tuple[str, str]] | None = None,
         retryable_error_codes: Iterable[StatusCode] | None = None,
+        _authenticator: Authenticator | None = None,
         *,
         meter_provider: MeterProvider | None = None,
     ):
@@ -123,6 +126,7 @@ class OTLPSpanExporter(
             compression=compression,
             channel_options=channel_options,
             retryable_error_codes=retryable_error_codes,
+            _authenticator=_authenticator,
             component_type=OtelComponentTypeValues.OTLP_GRPC_SPAN_EXPORTER,
             signal="traces",
             meter_provider=meter_provider,

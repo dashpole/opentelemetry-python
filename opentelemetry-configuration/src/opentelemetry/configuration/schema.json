@@ -1047,6 +1047,17 @@
         "config"
       ]
     },
+    "ExperimentalAuthenticator": {
+      "type": "object",
+      "additionalProperties": {
+        "type": [
+          "object",
+          "null"
+        ]
+      },
+      "minProperties": 1,
+      "maxProperties": 1
+    },
     "ExperimentalOtlpFileExporter": {
       "type": [
         "object",
@@ -1767,6 +1778,10 @@
           ],
           "minimum": 0,
           "description": "Configure max time (in milliseconds) to wait for each export.\nValue must be non-negative. A value of 0 indicates no limit (infinity).\nIf omitted or null, 10000 is used.\n"
+        },
+        "authenticator/development": {
+          "$ref": "#/$defs/ExperimentalAuthenticator",
+          "description": "Configure authenticator for the exporter.\nIf omitted, no authenticator is configured.\n"
         }
       }
     },
@@ -1825,6 +1840,10 @@
         "default_histogram_aggregation": {
           "$ref": "#/$defs/ExporterDefaultHistogramAggregation",
           "description": "Configure default histogram aggregation.\nValues include:\n* base2_exponential_bucket_histogram: Use base2 exponential histogram as the default aggregation for histogram instruments.\n* explicit_bucket_histogram: Use explicit bucket histogram as the default aggregation for histogram instruments.\nIf omitted, explicit_bucket_histogram is used.\n"
+        },
+        "authenticator/development": {
+          "$ref": "#/$defs/ExperimentalAuthenticator",
+          "description": "Configure authenticator for the exporter.\nIf omitted, no authenticator is configured.\n"
         }
       }
     },
@@ -1889,6 +1908,10 @@
         "encoding": {
           "$ref": "#/$defs/OtlpHttpEncoding",
           "description": "Configure the encoding used for messages. \nImplementations may not support json.\nValues include:\n* json: Protobuf JSON encoding.\n* protobuf: Protobuf binary encoding.\nIf omitted, protobuf is used.\n"
+        },
+        "authenticator/development": {
+          "$ref": "#/$defs/ExperimentalAuthenticator",
+          "description": "Configure authenticator for the exporter.\nIf omitted, no authenticator is configured.\n"
         }
       }
     },
@@ -1951,6 +1974,10 @@
         "default_histogram_aggregation": {
           "$ref": "#/$defs/ExporterDefaultHistogramAggregation",
           "description": "Configure default histogram aggregation.\nValues include:\n* base2_exponential_bucket_histogram: Use base2 exponential histogram as the default aggregation for histogram instruments.\n* explicit_bucket_histogram: Use explicit bucket histogram as the default aggregation for histogram instruments.\nIf omitted, explicit_bucket_histogram is used.\n"
+        },
+        "authenticator/development": {
+          "$ref": "#/$defs/ExperimentalAuthenticator",
+          "description": "Configure authenticator for the exporter.\nIf omitted, no authenticator is configured.\n"
         }
       }
     },

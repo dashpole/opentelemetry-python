@@ -26,6 +26,7 @@ from opentelemetry.sdk._logs.export import (
     LogRecordExporter,
     LogRecordExportResult,
 )
+from opentelemetry.sdk._auth import Authenticator
 from opentelemetry.sdk.environment_variables import (
     _OTEL_PYTHON_EXPORTER_OTLP_GRPC_LOGS_CREDENTIAL_PROVIDER,
     OTEL_EXPORTER_OTLP_LOGS_CERTIFICATE,
@@ -61,6 +62,7 @@ class OTLPLogExporter(
         compression: Compression | None = None,
         channel_options: tuple[tuple[str, str]] | None = None,
         retryable_error_codes: Iterable[StatusCode] | None = None,
+        _authenticator: Authenticator | None = None,
         *,
         meter_provider: MeterProvider | None = None,
     ):
@@ -95,6 +97,7 @@ class OTLPLogExporter(
             result=LogRecordExportResult,
             channel_options=channel_options,
             retryable_error_codes=retryable_error_codes,
+            _authenticator=_authenticator,
             component_type=OtelComponentTypeValues.OTLP_GRPC_LOG_EXPORTER,
             signal="logs",
             meter_provider=meter_provider,

@@ -40,6 +40,9 @@ file-configuration = [
   "opentelemetry-configuration == 0.67b0.dev",
 ]
 
+[project.entry-points.opentelemetry_authenticator]
+oauth2 = "opentelemetry.sdk._auth:OAuth2Authenticator"
+
 [project.entry-points.opentelemetry_environment_variables]
 sdk = "opentelemetry.sdk.environment_variables"
 

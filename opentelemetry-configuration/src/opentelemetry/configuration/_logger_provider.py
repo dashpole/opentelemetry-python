@@ -7,6 +7,7 @@ import logging
 
 from opentelemetry._logs import set_logger_provider
 from opentelemetry.configuration._common import (
+    _create_authenticator,
     _map_compression,
     _parse_headers,
     _parse_otlp_file_output_stream,
@@ -90,6 +91,8 @@ def _create_otlp_http_log_exporter(
     """Create an OTLP HTTP log exporter from config."""
     headers = _parse_headers(config.headers, config.headers_list)
     timeout = (config.timeout / 1000.0) if config.timeout is not None else None
+    authenticator = _create_authenticator(config.authenticator_development)
+    auth_kwargs = {"_authenticator": authenticator} if authenticator is not None else {}
 
     match config.encoding:
         case None | OtlpHttpEncoding.protobuf:
@@ -113,6 +116,7 @@ def _create_otlp_http_log_exporter(
                 headers=headers,
                 timeout=timeout,
                 compression=compression,
+                **auth_kwargs,
             )
         case OtlpHttpEncoding.json:
             try:
@@ -135,6 +139,7 @@ def _create_otlp_http_log_exporter(
                 headers=headers,
                 timeout=timeout,
                 compression=compression,
+                **auth_kwargs,
             )
         case _:
             raise ConfigurationError(
@@ -162,12 +167,15 @@ def _create_otlp_grpc_log_exporter(
     compression = _map_compression(config.compression, grpc.Compression)
     headers = _parse_headers(config.headers, config.headers_list)
     timeout = (config.timeout / 1000.0) if config.timeout is not None else None
+    authenticator = _create_authenticator(config.authenticator_development)
+    auth_kwargs = {"_authenticator": authenticator} if authenticator is not None else {}
 
     return OTLPLogExporter(  # type: ignore[return-value]
         endpoint=config.endpoint,
         headers=headers,
         timeout=timeout,
         compression=compression,  # type: ignore[arg-type]
+        **auth_kwargs,
     )
 
 

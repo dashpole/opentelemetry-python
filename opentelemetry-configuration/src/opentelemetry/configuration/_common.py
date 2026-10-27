@@ -6,7 +6,7 @@ from __future__ import annotations
 import dataclasses
 import inspect
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from fnmatch import fnmatchcase
 from typing import Any, Protocol, TypeVar
 from urllib.parse import urlparse
@@ -253,3 +253,26 @@ def _parse_otlp_file_output_stream(output_stream: str | None) -> str | None:
         f"Unsupported output_stream '{output_stream}' for otlp_file_development "
         "exporter. Supported values: stdout, file://<path>."
     )
+
+
+def _create_authenticator(config: Any) -> Any:
+    """Create an Authenticator from an ExperimentalAuthenticator config."""
+    if config is None:
+        return None
+    if isinstance(config, Mapping):
+        if not config:
+            raise ConfigurationError("No authenticator type specified in config.")
+        name, plugin_config = next(iter(config.items()))
+        return load_entry_point("opentelemetry_authenticator", name)(**(plugin_config or {}))
+    return _resolve_component(
+        config,
+        {},
+        "opentelemetry_authenticator",
+        "authenticator",
+    )
+
+
+@_additional_properties
+@dataclasses.dataclass
+class ExperimentalAuthenticator:
+    additional_properties: dict[str, dict[str, Any] | None] = dataclasses.field(default_factory=dict, init=False)

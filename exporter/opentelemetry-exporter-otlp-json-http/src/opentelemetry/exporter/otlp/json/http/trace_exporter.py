@@ -20,6 +20,7 @@ from opentelemetry.exporter.otlp.json.http._internal import (
     _resolve_headers,
     _resolve_timeout,
 )
+from opentelemetry.sdk._auth import Authenticator
 from opentelemetry.sdk.environment_variables import (
     OTEL_EXPORTER_OTLP_TRACES_CERTIFICATE,
     OTEL_EXPORTER_OTLP_TRACES_CLIENT_CERTIFICATE,
@@ -48,6 +49,7 @@ class OTLPSpanExporter(SpanExporter):
         headers: Mapping[str, str] | None = None,
         timeout: float | None = None,
         compression: Compression | None = None,
+        _authenticator: Authenticator | None = None,
     ) -> None: ...
 
     @overload
@@ -60,6 +62,7 @@ class OTLPSpanExporter(SpanExporter):
         headers: Mapping[str, str] | None = None,
         timeout: float | None = None,
         compression: Compression | None = None,
+        _authenticator: Authenticator | None = None,
         *,
         _transport: BaseHTTPTransport,
     ) -> None: ...
@@ -73,6 +76,7 @@ class OTLPSpanExporter(SpanExporter):
         headers: Mapping[str, str] | None = None,
         timeout: float | None = None,
         compression: Compression | None = None,
+        _authenticator: Authenticator | None = None,
         *,
         _transport: BaseHTTPTransport | None = None,
     ) -> None:
@@ -82,6 +86,7 @@ class OTLPSpanExporter(SpanExporter):
             endpoint: Full URL of the OTLP/HTTP signal endpoint, including the signal
                 path. Example: ``http://collector:4318/v1/traces``. For a base URL without a
                 signal path, set the ``OTEL_EXPORTER_OTLP_ENDPOINT`` environment variable.
+            authenticator: Authenticator instance for per-export dynamic authentication headers.
         """
         transport = _transport or _build_transport(
             certificate_file,
@@ -101,6 +106,7 @@ class OTLPSpanExporter(SpanExporter):
             else _resolve_compression(OTEL_EXPORTER_OTLP_TRACES_COMPRESSION),
             headers=_resolve_headers(headers, OTEL_EXPORTER_OTLP_TRACES_HEADERS),
             logger=_logger,
+            _authenticator=_authenticator,
         )
         self._shutdown = False
 

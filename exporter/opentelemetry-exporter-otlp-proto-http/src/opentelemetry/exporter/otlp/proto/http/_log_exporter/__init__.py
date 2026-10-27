@@ -33,6 +33,7 @@ from opentelemetry.sdk._logs.export import (
     LogRecordExportResult,
 )
 from opentelemetry.sdk._shared_internal import DuplicateFilter
+from opentelemetry.sdk._auth import Authenticator
 from opentelemetry.sdk.environment_variables import (
     _OTEL_PYTHON_EXPORTER_OTLP_HTTP_LOGS_CREDENTIAL_PROVIDER,
     OTEL_EXPORTER_OTLP_LOGS_CERTIFICATE,
@@ -79,6 +80,7 @@ class OTLPLogExporter(LogRecordExporter):
         timeout: float | None = None,
         compression: Compression | _http.Compression | None = None,
         session: requests.Session | None = None,
+        _authenticator: Authenticator | None = None,
         *,
         max_request_size: int | None = None,
         meter_provider: MeterProvider | None = None,
@@ -95,6 +97,7 @@ class OTLPLogExporter(LogRecordExporter):
         timeout: float | None = None,
         compression: Compression | _http.Compression | None = None,
         session: requests.Session | None = None,
+        _authenticator: Authenticator | None = None,
         *,
         max_request_size: int | None = None,
         meter_provider: MeterProvider | None = None,
@@ -111,6 +114,7 @@ class OTLPLogExporter(LogRecordExporter):
         timeout: float | None = None,
         compression: Compression | _http.Compression | None = None,
         session: requests.Session | None = None,
+        _authenticator: Authenticator | None = None,
         *,
         max_request_size: int | None = None,
         meter_provider: MeterProvider | None = None,
@@ -129,6 +133,7 @@ class OTLPLogExporter(LogRecordExporter):
             timeout: Timeout in seconds for each export request.
             compression: Compression to use; one of none, gzip, deflate.
             session: Requests session to use at export.
+            authenticator: Authenticator instance for per-export dynamic authentication headers.
             max_request_size: Maximum size in bytes of a serialized request,
                 measured before compression. A request exceeding this size is
                 dropped before being sent. Defaults to 64 MiB; a value of 0 (or
@@ -162,6 +167,7 @@ class OTLPLogExporter(LogRecordExporter):
             compression=self._compression,
             headers=_resolve_headers(headers, OTEL_EXPORTER_OTLP_LOGS_HEADERS),
             logger=_logger,
+            _authenticator=_authenticator,
         )
         self._shutdown = False
 

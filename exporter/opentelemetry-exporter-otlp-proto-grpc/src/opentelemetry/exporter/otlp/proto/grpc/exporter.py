@@ -44,6 +44,12 @@ from grpc import (
     secure_channel,
     ssl_channel_credentials,
 )
+from opentelemetry.context import (
+    _SUPPRESS_INSTRUMENTATION_KEY,
+    attach,
+    detach,
+    set_value,
+)
 from opentelemetry.exporter.otlp.common._exporter_metrics import (
     create_exporter_metrics,
 )
@@ -82,6 +88,10 @@ from opentelemetry.proto.resource.v1.resource_pb2 import Resource  # noqa: F401
 from opentelemetry.sdk._logs import ReadableLogRecord
 from opentelemetry.sdk._logs.export import LogRecordExportResult
 from opentelemetry.sdk._shared_internal import DuplicateFilter
+from opentelemetry.sdk._auth import (
+    Authenticator,
+    redact_sensitive_text,
+)
 from opentelemetry.sdk.environment_variables import (
     _OTEL_PYTHON_EXPORTER_OTLP_GRPC_CREDENTIAL_PROVIDER,
     _OTEL_PYTHON_EXPORTER_OTLP_GRPC_RETRYABLE_ERROR_CODES,
@@ -262,6 +272,7 @@ class OTLPExporterMixin(ABC, Generic[SDKDataT, ExportServiceRequestT, ExportResu
         timeout: Backend request timeout in seconds
         compression: gRPC compression method to use
         channel_options: gRPC channel options
+        authenticator: Authenticator instance for per-export dynamic authentication metadata
     """
 
     def __init__(
@@ -276,12 +287,18 @@ class OTLPExporterMixin(ABC, Generic[SDKDataT, ExportServiceRequestT, ExportResu
         compression: Compression | None = None,
         channel_options: tuple[tuple[str, str]] | None = None,
         retryable_error_codes: Iterable[StatusCode] | None = None,
+        _authenticator: Authenticator | None = None,
         *,
         component_type: OtelComponentTypeValues | None = None,
         signal: Literal["traces", "metrics", "logs"] = "traces",
         meter_provider: MeterProvider | None = None,
     ):
         super().__init__()
+        if _authenticator is not None and not isinstance(_authenticator, Authenticator):
+            raise TypeError(
+                f"_authenticator must be an instance of Authenticator, got {type(_authenticator).__name__}"
+            )
+        self._authenticator = _authenticator
         self._result = result
         self._stub = stub
         self._endpoint = endpoint or environ.get(OTEL_EXPORTER_OTLP_ENDPOINT, "http://localhost:4317")
@@ -430,9 +447,32 @@ class OTLPExporterMixin(ABC, Generic[SDKDataT, ExportServiceRequestT, ExportResu
                 try:
                     if self._client is None:
                         return self._result.FAILURE
+                    if self._authenticator is not None:
+                        token = attach(set_value(_SUPPRESS_INSTRUMENTATION_KEY, True))
+                        try:
+                            dynamic_headers = self._authenticator.get_headers()
+                        finally:
+                            detach(token)
+                        if dynamic_headers:
+                            dynamic_normalized = {
+                                key.lower(): value
+                                for key, value in dynamic_headers.items()
+                            }
+                            metadata = tuple(
+                                (key.lower(), value)
+                                for key, value in self._headers
+                                if key.lower() not in dynamic_normalized
+                            ) + tuple(dynamic_normalized.items())
+                        else:
+                            metadata = tuple(
+                                (key.lower(), value)
+                                for key, value in self._headers
+                            )
+                    else:
+                        metadata = self._headers
                     self._client.Export(
                         request=self._translate_data(data),
-                        metadata=self._headers,
+                        metadata=metadata,
                         timeout=deadline_sec - time(),
                     )
                     return self._result.SUCCESS  # type: ignore [reportReturnType]
@@ -491,6 +531,15 @@ class OTLPExporterMixin(ABC, Generic[SDKDataT, ExportServiceRequestT, ExportResu
                         backoff_seconds,
                         error.details(),
                     )
+                except Exception as error:  # pylint: disable=broad-exception-caught
+                    logger.error(
+                        "Failed to export %s to %s: %s",
+                        self._exporting,
+                        self._endpoint,
+                        redact_sensitive_text(str(error)),
+                    )
+                    result.error = error
+                    return self._result.FAILURE  # type: ignore [reportReturnType]
                 shutdown = self._shutdown_in_progress.wait(backoff_seconds)
                 if shutdown:
                     logger.warning("Shutdown in progress, aborting retry.")
@@ -510,8 +559,12 @@ class OTLPExporterMixin(ABC, Generic[SDKDataT, ExportServiceRequestT, ExportResu
             return
         self._shutdown = True
         self._shutdown_in_progress.set()
-        if self._channel:
-            self._channel.close()
+        try:
+            if self._channel:
+                self._channel.close()
+        finally:
+            if self._authenticator is not None:
+                self._authenticator.shutdown()
 
     @property
     @abstractmethod

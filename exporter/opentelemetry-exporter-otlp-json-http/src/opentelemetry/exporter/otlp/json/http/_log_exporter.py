@@ -26,6 +26,7 @@ from opentelemetry.sdk._logs.export import (
     LogRecordExportResult,
 )
 from opentelemetry.sdk._shared_internal import DuplicateFilter
+from opentelemetry.sdk._auth import Authenticator
 from opentelemetry.sdk.environment_variables import (
     OTEL_EXPORTER_OTLP_LOGS_CERTIFICATE,
     OTEL_EXPORTER_OTLP_LOGS_CLIENT_CERTIFICATE,
@@ -53,6 +54,7 @@ class OTLPLogExporter(LogRecordExporter):
         headers: Mapping[str, str] | None = None,
         timeout: float | None = None,
         compression: Compression | None = None,
+        _authenticator: Authenticator | None = None,
     ) -> None: ...
 
     @overload
@@ -65,6 +67,7 @@ class OTLPLogExporter(LogRecordExporter):
         headers: Mapping[str, str] | None = None,
         timeout: float | None = None,
         compression: Compression | None = None,
+        _authenticator: Authenticator | None = None,
         *,
         _transport: BaseHTTPTransport,
     ) -> None: ...
@@ -78,6 +81,7 @@ class OTLPLogExporter(LogRecordExporter):
         headers: Mapping[str, str] | None = None,
         timeout: float | None = None,
         compression: Compression | None = None,
+        _authenticator: Authenticator | None = None,
         *,
         _transport: BaseHTTPTransport | None = None,
     ) -> None:
@@ -87,6 +91,7 @@ class OTLPLogExporter(LogRecordExporter):
             endpoint: Full URL of the OTLP/HTTP signal endpoint, including the signal
                 path. Example: ``http://collector:4318/v1/logs``. For a base URL without a
                 signal path, set the ``OTEL_EXPORTER_OTLP_ENDPOINT`` environment variable.
+            authenticator: Authenticator instance for per-export dynamic authentication headers.
         """
         transport = _transport or _build_transport(
             certificate_file,
@@ -106,6 +111,7 @@ class OTLPLogExporter(LogRecordExporter):
             else _resolve_compression(OTEL_EXPORTER_OTLP_LOGS_COMPRESSION),
             headers=_resolve_headers(headers, OTEL_EXPORTER_OTLP_LOGS_HEADERS),
             logger=_logger,
+            _authenticator=_authenticator,
         )
         self._shutdown = False
 

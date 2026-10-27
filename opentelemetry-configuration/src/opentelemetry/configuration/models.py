@@ -8,7 +8,10 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, TypeAlias
 
-from opentelemetry.configuration._common import _additional_properties
+from opentelemetry.configuration._common import (
+    ExperimentalAuthenticator,
+    _additional_properties,
+)
 
 AlwaysOffSampler: TypeAlias = dict[str, Any] | None
 
@@ -275,6 +278,7 @@ class OtlpGrpcExporter:
     headers_list: str | None = None
     compression: str | None = None
     timeout: int | None = None
+    authenticator_development: ExperimentalAuthenticator | None = None
 
 
 @dataclass
@@ -287,6 +291,7 @@ class OtlpGrpcMetricExporter:
     timeout: int | None = None
     temporality_preference: ExporterTemporalityPreference | None = None
     default_histogram_aggregation: ExporterDefaultHistogramAggregation | None = None
+    authenticator_development: ExperimentalAuthenticator | None = None
 
 
 class OtlpHttpEncoding(Enum):
@@ -303,6 +308,7 @@ class OtlpHttpExporter:
     compression: str | None = None
     timeout: int | None = None
     encoding: OtlpHttpEncoding | None = None
+    authenticator_development: ExperimentalAuthenticator | None = None
 
 
 @dataclass
@@ -316,6 +322,7 @@ class OtlpHttpMetricExporter:
     encoding: OtlpHttpEncoding | None = None
     temporality_preference: ExporterTemporalityPreference | None = None
     default_histogram_aggregation: ExporterDefaultHistogramAggregation | None = None
+    authenticator_development: ExperimentalAuthenticator | None = None
 
 
 RandomIdGenerator: TypeAlias = dict[str, Any] | None

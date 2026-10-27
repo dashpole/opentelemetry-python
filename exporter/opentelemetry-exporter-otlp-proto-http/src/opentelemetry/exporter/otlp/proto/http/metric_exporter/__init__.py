@@ -57,6 +57,7 @@ from opentelemetry.proto.resource.v1.resource_pb2 import Resource  # noqa: F401
 from opentelemetry.proto.resource.v1.resource_pb2 import (
     Resource as PB2Resource,
 )
+from opentelemetry.sdk._auth import Authenticator
 from opentelemetry.sdk.environment_variables import (
     _OTEL_PYTHON_EXPORTER_OTLP_HTTP_METRICS_CREDENTIAL_PROVIDER,
     OTEL_EXPORTER_OTLP_METRICS_CERTIFICATE,
@@ -117,6 +118,7 @@ class OTLPMetricExporter(MetricExporter):
         preferred_temporality: dict[type, AggregationTemporality] | None = None,
         preferred_aggregation: dict[type, Aggregation] | None = None,
         max_export_batch_size: int | None = None,
+        _authenticator: Authenticator | None = None,
         *,
         max_request_size: int | None = None,
         meter_provider: MeterProvider | None = None,
@@ -136,6 +138,7 @@ class OTLPMetricExporter(MetricExporter):
         preferred_temporality: dict[type, AggregationTemporality] | None = None,
         preferred_aggregation: dict[type, Aggregation] | None = None,
         max_export_batch_size: int | None = None,
+        _authenticator: Authenticator | None = None,
         *,
         max_request_size: int | None = None,
         meter_provider: MeterProvider | None = None,
@@ -155,6 +158,7 @@ class OTLPMetricExporter(MetricExporter):
         preferred_temporality: dict[type, AggregationTemporality] | None = None,
         preferred_aggregation: dict[type, Aggregation] | None = None,
         max_export_batch_size: int | None = None,
+        _authenticator: Authenticator | None = None,
         *,
         max_request_size: int | None = None,
         meter_provider: MeterProvider | None = None,
@@ -182,6 +186,7 @@ class OTLPMetricExporter(MetricExporter):
             max_export_batch_size: Maximum number of data points to export in a single request.
                 If not set there is no limit to the number of data points in a request.
                 If it is set and the number of data points exceeds the max, the request will be split.
+            authenticator: Authenticator instance for per-export dynamic authentication headers.
             max_request_size: Maximum size in bytes of a serialized request, measured before
                 compression. A request exceeding this size is dropped before being sent. Defaults
                 to 64 MiB; a value of 0 (or any non-positive value) disables the limit. Requests
@@ -217,6 +222,7 @@ class OTLPMetricExporter(MetricExporter):
             compression=self._compression,
             headers=_resolve_headers(headers, OTEL_EXPORTER_OTLP_METRICS_HEADERS),
             logger=_logger,
+            _authenticator=_authenticator,
         )
         self._max_export_batch_size: int | None = max_export_batch_size
         self._max_request_size = _DEFAULT_MAX_REQUEST_SIZE if max_request_size is None else max_request_size

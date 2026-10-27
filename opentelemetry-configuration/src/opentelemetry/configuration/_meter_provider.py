@@ -7,6 +7,7 @@ import logging
 
 from opentelemetry import metrics
 from opentelemetry.configuration._common import (
+    _create_authenticator,
     _map_compression,
     _parse_headers,
     _parse_otlp_file_output_stream,
@@ -278,6 +279,8 @@ def _create_otlp_http_metric_exporter(
     timeout = (config.timeout / 1000.0) if config.timeout is not None else None
     preferred_temporality = _map_temporality(config.temporality_preference)
     preferred_aggregation = _map_histogram_aggregation(config.default_histogram_aggregation)
+    authenticator = _create_authenticator(config.authenticator_development)
+    auth_kwargs = {"_authenticator": authenticator} if authenticator is not None else {}
 
     match config.encoding:
         case None | OtlpHttpEncoding.protobuf:
@@ -303,6 +306,7 @@ def _create_otlp_http_metric_exporter(
                 compression=compression,
                 preferred_temporality=preferred_temporality,
                 preferred_aggregation=preferred_aggregation,
+                **auth_kwargs,
             )
         case OtlpHttpEncoding.json:
             try:
@@ -327,6 +331,7 @@ def _create_otlp_http_metric_exporter(
                 compression=compression,
                 preferred_temporality=preferred_temporality,
                 preferred_aggregation=preferred_aggregation,
+                **auth_kwargs,
             )
         case _:
             raise ConfigurationError(
@@ -356,6 +361,8 @@ def _create_otlp_grpc_metric_exporter(
     timeout = (config.timeout / 1000.0) if config.timeout is not None else None
     preferred_temporality = _map_temporality(config.temporality_preference)
     preferred_aggregation = _map_histogram_aggregation(config.default_histogram_aggregation)
+    authenticator = _create_authenticator(config.authenticator_development)
+    auth_kwargs = {"_authenticator": authenticator} if authenticator is not None else {}
 
     return OTLPMetricExporter(  # type: ignore[return-value]
         endpoint=config.endpoint,
@@ -364,6 +371,7 @@ def _create_otlp_grpc_metric_exporter(
         compression=compression,  # type: ignore[arg-type]
         preferred_temporality=preferred_temporality,
         preferred_aggregation=preferred_aggregation,
+        **auth_kwargs,
     )
 
 
