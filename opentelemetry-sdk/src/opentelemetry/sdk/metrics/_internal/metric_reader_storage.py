@@ -90,6 +90,14 @@ class MetricReaderStorage:
             instrument_class_aggregation=self._instrument_class_aggregation,
             cardinality_limit=cardinality_limit,
             reset_on_collect=reset_on_collect,
+            _minimum_stability=self._sdk_config._minimum_stability,
+        )
+
+    def _is_instrument_enabled(self, instrument: _Instrument) -> bool:
+        # pylint: disable=protected-access
+        return any(
+            not isinstance(match._aggregation, _DropAggregation)
+            for match in self._get_or_init_view_instrument_match(instrument)
         )
 
     def _get_or_init_view_instrument_match(self, instrument: _Instrument) -> list[_ViewInstrumentMatch]:

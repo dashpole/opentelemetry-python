@@ -18,6 +18,7 @@ from typing import (
 from opentelemetry import metrics
 from opentelemetry.context import Context
 from opentelemetry.metrics._internal.observation import Observation
+from opentelemetry.util._stability import _Stability
 from opentelemetry.util.types import (
     Attributes,
 )
@@ -102,11 +103,24 @@ class _ProxyInstrument(ABC, Generic[InstrumentT]):
         name: str,
         unit: str = "",
         description: str = "",
+        *,
+        _stability: _Stability = _Stability.STABLE,
+        _opt_in: bool = False,
     ) -> None:
         self._name = name
         self._unit = unit
         self._description = description
+        self._stability = _stability
+        self._opt_in = _opt_in
         self._real_instrument: InstrumentT | None = None
+
+    def _advisory_kwargs(self) -> dict[str, object]:
+        kwargs: dict[str, object] = {}
+        if self._stability != _Stability.STABLE:
+            kwargs["_stability"] = self._stability
+        if self._opt_in:
+            kwargs["_opt_in"] = self._opt_in
+        return kwargs
 
     def on_meter_set(self, meter: "metrics.Meter") -> None:
         """Called when a real meter is set on the creating _ProxyMeter"""
@@ -128,8 +142,17 @@ class _ProxyAsynchronousInstrument(_ProxyInstrument[InstrumentT]):
         callbacks: Sequence[CallbackT] | None = None,
         unit: str = "",
         description: str = "",
+        *,
+        _stability: _Stability = _Stability.STABLE,
+        _opt_in: bool = False,
     ) -> None:
-        super().__init__(name, unit, description)
+        super().__init__(
+            name,
+            unit,
+            description,
+            _stability=_stability,
+            _opt_in=_opt_in,
+        )
         self._callbacks = callbacks
 
 
@@ -206,6 +229,7 @@ class _ProxyCounter(_ProxyInstrument[Counter], Counter):
             self._name,
             self._unit,
             self._description,
+            **self._advisory_kwargs(),  # type: ignore[arg-type]
         )
 
 
@@ -268,6 +292,7 @@ class _ProxyUpDownCounter(_ProxyInstrument[UpDownCounter], UpDownCounter):
             self._name,
             self._unit,
             self._description,
+            **self._advisory_kwargs(),  # type: ignore[arg-type]
         )
 
 
@@ -302,6 +327,7 @@ class _ProxyObservableCounter(_ProxyAsynchronousInstrument[ObservableCounter], O
             self._callbacks,
             self._unit,
             self._description,
+            **self._advisory_kwargs(),  # type: ignore[arg-type]
         )
 
 
@@ -340,6 +366,7 @@ class _ProxyObservableUpDownCounter(
             self._callbacks,
             self._unit,
             self._description,
+            **self._advisory_kwargs(),  # type: ignore[arg-type]
         )
 
 
@@ -415,8 +442,17 @@ class _ProxyHistogram(_ProxyInstrument[Histogram], Histogram):
         unit: str = "",
         description: str = "",
         explicit_bucket_boundaries_advisory: Sequence[float] | None = None,
+        *,
+        _stability: _Stability = _Stability.STABLE,
+        _opt_in: bool = False,
     ) -> None:
-        super().__init__(name, unit=unit, description=description)
+        super().__init__(
+            name,
+            unit=unit,
+            description=description,
+            _stability=_stability,
+            _opt_in=_opt_in,
+        )
         self._explicit_bucket_boundaries_advisory = explicit_bucket_boundaries_advisory
 
     def record(
@@ -434,6 +470,7 @@ class _ProxyHistogram(_ProxyInstrument[Histogram], Histogram):
             self._unit,
             self._description,
             explicit_bucket_boundaries_advisory=self._explicit_bucket_boundaries_advisory,
+            **self._advisory_kwargs(),  # type: ignore[arg-type]
         )
 
 
@@ -472,6 +509,7 @@ class _ProxyObservableGauge(
             self._callbacks,
             self._unit,
             self._description,
+            **self._advisory_kwargs(),  # type: ignore[arg-type]
         )
 
 
@@ -537,4 +575,5 @@ class _ProxyGauge(
             self._name,
             self._unit,
             self._description,
+            **self._advisory_kwargs(),  # type: ignore[arg-type]
         )

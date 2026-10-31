@@ -13,6 +13,7 @@ from time import time_ns
 import opentelemetry.sdk.metrics
 import opentelemetry.sdk.metrics._internal.instrument
 from opentelemetry.metrics._internal.instrument import CallbackOptions
+from opentelemetry.sdk.metrics._internal.aggregation import DropAggregation
 from opentelemetry.sdk.metrics._internal.exceptions import MetricsTimeoutError
 from opentelemetry.sdk.metrics._internal.measurement import Measurement
 from opentelemetry.sdk.metrics._internal.metric_reader_storage import (
@@ -24,6 +25,7 @@ from opentelemetry.sdk.metrics._internal.point import (
     ScopeMetrics,
 )
 from opentelemetry.sdk.resources import Resource
+from opentelemetry.util._stability import _Stability
 
 _logger = getLogger(__name__)
 
@@ -47,6 +49,20 @@ class MeasurementConsumer(ABC):
         timeout_millis: float = 10_000,
     ) -> MetricsData | None:
         pass
+
+    def _is_instrument_enabled(
+        self,
+        instrument: "opentelemetry.sdk.metrics._internal.instrument._Instrument",
+    ) -> bool:
+        return True
+
+    def _is_attribute_enabled(
+        self,
+        instrumentation_scope: "opentelemetry.sdk.util.instrumentation.InstrumentationScope",  # pylint: disable=unused-argument
+        key: str,  # pylint: disable=unused-argument
+        stability: _Stability = _Stability.STABLE,  # pylint: disable=unused-argument
+    ) -> bool:
+        return False
 
 
 class SynchronousMeasurementConsumer(MeasurementConsumer):
@@ -87,6 +103,41 @@ class SynchronousMeasurementConsumer(MeasurementConsumer):
     ) -> None:
         with self._lock:
             self._async_instruments.append(instrument)
+
+    def _is_instrument_enabled(
+        self,
+        instrument: "opentelemetry.sdk.metrics._internal.instrument._Instrument",
+    ) -> bool:
+        # pylint: disable=protected-access
+        if not self._reader_storages:
+            # Preserve existing behavior: without MetricReaders there are no
+            # resolved views, so instruments are not reported as disabled.
+            return True
+        return any(
+            reader_storage._is_instrument_enabled(instrument) for reader_storage in self._reader_storages.values()
+        )
+
+    def _is_attribute_enabled(
+        self,
+        instrumentation_scope: "opentelemetry.sdk.util.instrumentation.InstrumentationScope",
+        key: str,
+        stability: _Stability = _Stability.STABLE,
+    ) -> bool:
+        # pylint: disable=protected-access
+        if not self._reader_storages:
+            return False
+        if stability >= self._sdk_config._minimum_stability:
+            return True
+        # Attributes below minimum_stability are only enabled when an active
+        # View matching the Meter explicitly includes the key.
+        return any(
+            view._match_meter(instrumentation_scope)
+            and view._enabled is not False
+            and not isinstance(view._aggregation, DropAggregation)
+            and view._attribute_keys is not None
+            and key in view._attribute_keys
+            for view in self._sdk_config.views
+        )
 
     def collect(
         self,

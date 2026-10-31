@@ -59,6 +59,7 @@ from opentelemetry.metrics._internal.instrument import (
 from opentelemetry.metrics._internal.instrument import Gauge as _Gauge
 from opentelemetry.metrics._internal.instrument import NoOpGauge as _NoOpGauge
 from opentelemetry.metrics._internal.observation import Observation
+from opentelemetry.util._stability import _Stability
 
 for obj in [
     Counter,
@@ -115,6 +116,7 @@ __all__ = [
     "UpDownCounter",
     "_Gauge",
     "_NoOpGauge",
+    "_Stability",
     "get_meter",
     "get_meter_provider",
     "set_meter_provider",

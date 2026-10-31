@@ -20,6 +20,7 @@ from opentelemetry.sdk.metrics._internal.exemplar import (
     SimpleFixedSizeExemplarReservoir,
 )
 from opentelemetry.sdk.metrics._internal.instrument import _Instrument
+from opentelemetry.sdk.util.instrumentation import InstrumentationScope
 
 _logger = getLogger(__name__)
 
@@ -117,6 +118,8 @@ class View:
         exemplar_reservoir_factory: Callable[[type[_Aggregation]], ExemplarReservoirBuilder] | None = None,
         instrument_unit: str | None = None,
         aggregation_cardinality_limit: int | None = None,
+        *,
+        _enabled: bool | None = None,
     ):
         if aggregation_cardinality_limit is not None and (
             isinstance(aggregation_cardinality_limit, bool)
@@ -165,6 +168,7 @@ class View:
         self._aggregation = aggregation or self._default_aggregation
         self._exemplar_reservoir_factory = exemplar_reservoir_factory or _default_reservoir_factory
         self._aggregation_cardinality_limit = aggregation_cardinality_limit
+        self._enabled = _enabled
 
     # pylint: disable=too-many-return-statements
     # pylint: disable=too-many-branches
@@ -187,16 +191,19 @@ class View:
             if not fnmatchcase(instrument.unit, self._instrument_unit):
                 return False
 
+        return self._match_meter(instrument.instrumentation_scope)
+
+    def _match_meter(self, instrumentation_scope: InstrumentationScope) -> bool:
         if self._meter_name is not None:
-            if instrument.instrumentation_scope.name != self._meter_name:
+            if instrumentation_scope.name != self._meter_name:
                 return False
 
         if self._meter_version is not None:
-            if instrument.instrumentation_scope.version != self._meter_version:
+            if instrumentation_scope.version != self._meter_version:
                 return False
 
         if self._meter_schema_url is not None:
-            if instrument.instrumentation_scope.schema_url != self._meter_schema_url:
+            if instrumentation_scope.schema_url != self._meter_schema_url:
                 return False
 
         return True
