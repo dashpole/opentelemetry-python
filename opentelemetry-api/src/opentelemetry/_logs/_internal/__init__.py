@@ -40,6 +40,7 @@ from opentelemetry.trace import get_current_span
 from opentelemetry.trace.span import TraceFlags
 from opentelemetry.util._once import Once
 from opentelemetry.util._providers import _load_provider
+from opentelemetry.util._stability import _Stability
 from opentelemetry.util.types import AnyValue, Attributes
 
 _logger = getLogger(__name__)
@@ -165,12 +166,15 @@ class Logger(ABC):
         attributes: Attributes = None,
         event_name: str | None = None,
         exception: BaseException | None = None,
+        _stability: _Stability = _Stability.STABLE,
     ) -> None: ...
 
     @overload
     def emit(
         self,
         record: LogRecord,
+        *,
+        _stability: _Stability = _Stability.STABLE,
     ) -> None: ...
 
     @abstractmethod
@@ -187,6 +191,7 @@ class Logger(ABC):
         attributes: Attributes = None,
         event_name: str | None = None,
         exception: BaseException | None = None,
+        _stability: _Stability = _Stability.STABLE,
     ) -> None:
         """Emits a :class:`LogRecord` representing a log to the processing pipeline."""
 
@@ -197,6 +202,7 @@ class Logger(ABC):
         context: Context | None = None,
         severity_number: SeverityNumber | None = None,
         event_name: str | None = None,
+        _stability: _Stability = _Stability.STABLE,
     ) -> bool:
         """Returns whether the logger is enabled for the given arguments.
 
@@ -206,6 +212,27 @@ class Logger(ABC):
         The returned value may change over time and should be checked each time
         before emitting a log record.
         """
+
+    def _is_enabled(
+        self,
+        *,
+        context: Context | None = None,
+        severity_number: SeverityNumber | None = None,
+        event_name: str | None = None,
+        _stability: _Stability = _Stability.STABLE,
+    ) -> bool:
+        if _stability != _Stability.STABLE:
+            return self.enabled(
+                context=context,
+                severity_number=severity_number,
+                event_name=event_name,
+                _stability=_stability,
+            )
+        return self.enabled(
+            context=context,
+            severity_number=severity_number,
+            event_name=event_name,
+        )
 
 
 class NoOpLogger(Logger):
@@ -227,12 +254,15 @@ class NoOpLogger(Logger):
         attributes: Attributes = None,
         event_name: str | None = None,
         exception: BaseException | None = None,
+        _stability: _Stability = _Stability.STABLE,
     ) -> None: ...
 
     @overload
     def emit(  # pylint:disable=arguments-differ
         self,
         record: LogRecord,
+        *,
+        _stability: _Stability = _Stability.STABLE,
     ) -> None: ...
 
     def emit(
@@ -248,6 +278,7 @@ class NoOpLogger(Logger):
         attributes: Attributes = None,
         event_name: str | None = None,
         exception: BaseException | None = None,
+        _stability: _Stability = _Stability.STABLE,
     ) -> None:
         pass
 
@@ -257,6 +288,7 @@ class NoOpLogger(Logger):
         context: Context | None = None,
         severity_number: SeverityNumber | None = None,
         event_name: str | None = None,
+        _stability: _Stability = _Stability.STABLE,
     ) -> bool:
         return False
 
@@ -304,12 +336,15 @@ class ProxyLogger(Logger):
         attributes: Attributes = None,
         event_name: str | None = None,
         exception: BaseException | None = None,
+        _stability: _Stability = _Stability.STABLE,
     ) -> None: ...
 
     @overload
     def emit(  # pylint:disable=arguments-differ
         self,
         record: LogRecord,
+        *,
+        _stability: _Stability = _Stability.STABLE,
     ) -> None: ...
 
     def emit(
@@ -325,9 +360,11 @@ class ProxyLogger(Logger):
         attributes: Attributes = None,
         event_name: str | None = None,
         exception: BaseException | None = None,
+        _stability: _Stability = _Stability.STABLE,
     ) -> None:
+        stability_kwargs = {"_stability": _stability} if _stability != _Stability.STABLE else {}
         if record:
-            self._logger.emit(record)
+            self._logger.emit(record, **stability_kwargs)  # type: ignore[arg-type]
         else:
             self._logger.emit(
                 timestamp=timestamp,
@@ -339,6 +376,7 @@ class ProxyLogger(Logger):
                 attributes=attributes,
                 event_name=event_name,
                 exception=exception,
+                **stability_kwargs,  # type: ignore[arg-type]
             )
 
     def enabled(
@@ -347,11 +385,14 @@ class ProxyLogger(Logger):
         context: Context | None = None,
         severity_number: SeverityNumber | None = None,
         event_name: str | None = None,
+        _stability: _Stability = _Stability.STABLE,
     ) -> bool:
+        stability_kwargs = {"_stability": _stability} if _stability != _Stability.STABLE else {}
         return self._logger.enabled(
             context=context,
             severity_number=severity_number,
             event_name=event_name,
+            **stability_kwargs,  # type: ignore[arg-type]
         )
 
 

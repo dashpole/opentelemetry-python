@@ -14,13 +14,16 @@ from opentelemetry.sdk.metrics._internal.aggregation import (
     Aggregation,
     AggregationTemporality,
     DefaultAggregation,
+    DropAggregation,
     _Aggregation,
+    _DropAggregation,
     _SumAggregation,
 )
 from opentelemetry.sdk.metrics._internal.instrument import _Instrument
 from opentelemetry.sdk.metrics._internal.measurement import Measurement
 from opentelemetry.sdk.metrics._internal.point import DataPointT
 from opentelemetry.sdk.metrics._internal.view import View
+from opentelemetry.util._stability import _Stability
 from opentelemetry.util.types import AnyValue, Attributes
 
 _logger = getLogger(__name__)
@@ -80,10 +83,12 @@ class _ViewInstrumentMatch:
         instrument_class_aggregation: dict[type, Aggregation],
         cardinality_limit: int = _DEFAULT_CARDINALITY_LIMIT,
         reset_on_collect: bool = False,
+        _minimum_stability: _Stability = _Stability.STABLE,
     ):
         self._view = view
         self._cardinality_limit = cardinality_limit
         self._reset_on_collect = reset_on_collect
+        self._minimum_stability = _minimum_stability
         # Delta aggregations created after a collection continue from it.
         self._previous_collection_start_nanos: int | None = None
         self._instrument = instrument
@@ -92,23 +97,41 @@ class _ViewInstrumentMatch:
         self._instrument_class_aggregation = instrument_class_aggregation
         self._name = self._view._name or self._instrument.name
         self._description = self._view._description or self._instrument.description
+        self._resolved_aggregation = self._resolve_aggregation()
+        self._aggregation = self._resolved_aggregation._create_aggregation(
+            self._instrument,
+            None,
+            self._view._exemplar_reservoir_factory,
+            0,
+        )
+
+    def _resolve_aggregation(self) -> Aggregation:
+        # pylint: disable=protected-access
+        view_enabled = getattr(self._view, "_enabled", None)
+        if view_enabled is False:
+            return DropAggregation()
+        if view_enabled is True:
+            if not isinstance(self._view._aggregation, DefaultAggregation):
+                return self._view._aggregation
+            return self._instrument_class_aggregation[self._instrument.__class__]
+
+        opt_in = getattr(self._instrument, "_opt_in", False) is True
+        stability = getattr(self._instrument, "_stability", _Stability.STABLE)
+        below_min_stability = (
+            isinstance(stability, _Stability)
+            and isinstance(self._minimum_stability, _Stability)
+            and stability < self._minimum_stability
+        )
+        if opt_in or below_min_stability:
+            return DropAggregation()
         if not isinstance(self._view._aggregation, DefaultAggregation):
-            self._aggregation = self._view._aggregation._create_aggregation(
-                self._instrument,
-                None,
-                self._view._exemplar_reservoir_factory,
-                0,
-            )
-        else:
-            self._aggregation = self._instrument_class_aggregation[self._instrument.__class__]._create_aggregation(
-                self._instrument,
-                None,
-                self._view._exemplar_reservoir_factory,
-                0,
-            )
+            return self._view._aggregation
+        return self._instrument_class_aggregation[self._instrument.__class__]
 
     def conflicts(self, other: "_ViewInstrumentMatch") -> bool:
         # pylint: disable=protected-access
+        if isinstance(self._aggregation, _DropAggregation) or isinstance(other._aggregation, _DropAggregation):
+            return False
 
         result = (
             self._name == other._name
@@ -177,20 +200,12 @@ class _ViewInstrumentMatch:
 
         start_time_unix_nano = self._previous_collection_start_nanos or time_ns()
         # pylint: disable=protected-access
-        if not isinstance(self._view._aggregation, DefaultAggregation):
-            aggregation = self._view._aggregation._create_aggregation(
-                self._instrument,
-                attributes,
-                self._view._exemplar_reservoir_factory,
-                start_time_unix_nano,
-            )
-        else:
-            aggregation = self._instrument_class_aggregation[self._instrument.__class__]._create_aggregation(
-                self._instrument,
-                attributes,
-                self._view._exemplar_reservoir_factory,
-                start_time_unix_nano,
-            )
+        aggregation = self._resolved_aggregation._create_aggregation(
+            self._instrument,
+            attributes,
+            self._view._exemplar_reservoir_factory,
+            start_time_unix_nano,
+        )
         self._attributes_aggregation[aggr_key] = aggregation
         return aggregation
 

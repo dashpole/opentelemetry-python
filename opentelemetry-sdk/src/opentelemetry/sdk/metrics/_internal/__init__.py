@@ -61,6 +61,7 @@ from opentelemetry.sdk.util.instrumentation import (
     InstrumentationScope,
 )
 from opentelemetry.util._once import Once
+from opentelemetry.util._stability import _Stability
 from opentelemetry.util.types import (
     Attributes,
 )
@@ -116,7 +117,15 @@ class Meter(APIMeter):
     def _set_meter_config(self, meter_config: _MeterConfig) -> None:
         self._meter_config.update(meter_config)
 
-    def create_counter(self, name, unit="", description="") -> APICounter:
+    def create_counter(
+        self,
+        name,
+        unit="",
+        description="",
+        *,
+        _stability: _Stability = _Stability.STABLE,
+        _opt_in: bool = False,
+    ) -> APICounter:
         with self._instrument_registration_lock:
             status = self._register_instrument(name, _Counter, unit, description)
             if not status.already_registered:
@@ -127,6 +136,8 @@ class Meter(APIMeter):
                     unit,
                     description,
                     _meter_config=self._meter_config,
+                    _stability=_stability,
+                    _opt_in=_opt_in,
                 )
             instrument = self._instrument_id_instrument[status.instrument_id]
 
@@ -143,7 +154,15 @@ class Meter(APIMeter):
             )
         return instrument
 
-    def create_up_down_counter(self, name, unit="", description="") -> APIUpDownCounter:
+    def create_up_down_counter(
+        self,
+        name,
+        unit="",
+        description="",
+        *,
+        _stability: _Stability = _Stability.STABLE,
+        _opt_in: bool = False,
+    ) -> APIUpDownCounter:
         with self._instrument_registration_lock:
             status = self._register_instrument(name, _UpDownCounter, unit, description)
             if not status.already_registered:
@@ -154,6 +173,8 @@ class Meter(APIMeter):
                     unit,
                     description,
                     _meter_config=self._meter_config,
+                    _stability=_stability,
+                    _opt_in=_opt_in,
                 )
             instrument = self._instrument_id_instrument[status.instrument_id]
 
@@ -176,6 +197,9 @@ class Meter(APIMeter):
         callbacks=None,
         unit="",
         description="",
+        *,
+        _stability: _Stability = _Stability.STABLE,
+        _opt_in: bool = False,
     ) -> APIObservableCounter:
         with self._instrument_registration_lock:
             status = self._register_instrument(name, _ObservableCounter, unit, description)
@@ -188,6 +212,8 @@ class Meter(APIMeter):
                     unit,
                     description,
                     _meter_config=self._meter_config,
+                    _stability=_stability,
+                    _opt_in=_opt_in,
                 )
             instrument = self._instrument_id_instrument[status.instrument_id]
 
@@ -214,6 +240,8 @@ class Meter(APIMeter):
         description: str = "",
         *,
         explicit_bucket_boundaries_advisory: Sequence[float] | None = None,
+        _stability: _Stability = _Stability.STABLE,
+        _opt_in: bool = False,
     ) -> APIHistogram:
         if explicit_bucket_boundaries_advisory is not None:
             invalid_advisory = False
@@ -248,6 +276,8 @@ class Meter(APIMeter):
                     description,
                     explicit_bucket_boundaries_advisory,
                     _meter_config=self._meter_config,
+                    _stability=_stability,
+                    _opt_in=_opt_in,
                 )
             instrument = self._instrument_id_instrument[status.instrument_id]
 
@@ -264,7 +294,15 @@ class Meter(APIMeter):
             )
         return instrument
 
-    def create_gauge(self, name, unit="", description="") -> APIGauge:
+    def create_gauge(
+        self,
+        name,
+        unit="",
+        description="",
+        *,
+        _stability: _Stability = _Stability.STABLE,
+        _opt_in: bool = False,
+    ) -> APIGauge:
         with self._instrument_registration_lock:
             status = self._register_instrument(name, _Gauge, unit, description)
             if not status.already_registered:
@@ -275,6 +313,8 @@ class Meter(APIMeter):
                     unit,
                     description,
                     _meter_config=self._meter_config,
+                    _stability=_stability,
+                    _opt_in=_opt_in,
                 )
             instrument = self._instrument_id_instrument[status.instrument_id]
 
@@ -291,7 +331,16 @@ class Meter(APIMeter):
             )
         return instrument
 
-    def create_observable_gauge(self, name, callbacks=None, unit="", description="") -> APIObservableGauge:
+    def create_observable_gauge(
+        self,
+        name,
+        callbacks=None,
+        unit="",
+        description="",
+        *,
+        _stability: _Stability = _Stability.STABLE,
+        _opt_in: bool = False,
+    ) -> APIObservableGauge:
         with self._instrument_registration_lock:
             status = self._register_instrument(name, _ObservableGauge, unit, description)
             if not status.already_registered:
@@ -303,6 +352,8 @@ class Meter(APIMeter):
                     unit,
                     description,
                     _meter_config=self._meter_config,
+                    _stability=_stability,
+                    _opt_in=_opt_in,
                 )
             instrument = self._instrument_id_instrument[status.instrument_id]
 
@@ -323,7 +374,14 @@ class Meter(APIMeter):
         return instrument
 
     def create_observable_up_down_counter(
-        self, name, callbacks=None, unit="", description=""
+        self,
+        name,
+        callbacks=None,
+        unit="",
+        description="",
+        *,
+        _stability: _Stability = _Stability.STABLE,
+        _opt_in: bool = False,
     ) -> APIObservableUpDownCounter:
         with self._instrument_registration_lock:
             status = self._register_instrument(name, _ObservableUpDownCounter, unit, description)
@@ -336,6 +394,8 @@ class Meter(APIMeter):
                     unit,
                     description,
                     _meter_config=self._meter_config,
+                    _stability=_stability,
+                    _opt_in=_opt_in,
                 )
             instrument = self._instrument_id_instrument[status.instrument_id]
 
@@ -439,6 +499,7 @@ class MeterProvider(APIMeterProvider):
         views: Sequence["opentelemetry.sdk.metrics.view.View"] = (),
         *,
         _meter_configurator: _MeterConfiguratorT | None = None,
+        _minimum_stability: _Stability = _Stability.STABLE,
     ):
         self._lock = Lock()
         self._meter_lock = Lock()
@@ -451,6 +512,7 @@ class MeterProvider(APIMeterProvider):
             ),
             resource=resource,
             views=views,
+            _minimum_stability=_minimum_stability,
         )
         self._metric_readers = metric_readers
         self._measurement_consumer = SynchronousMeasurementConsumer(

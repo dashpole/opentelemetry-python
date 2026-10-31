@@ -13,9 +13,11 @@ from time import time_ns
 import opentelemetry.sdk.metrics
 import opentelemetry.sdk.metrics._internal.instrument
 from opentelemetry.metrics._internal.instrument import CallbackOptions
+from opentelemetry.sdk.metrics._internal.aggregation import DropAggregation
 from opentelemetry.sdk.metrics._internal.exceptions import MetricsTimeoutError
 from opentelemetry.sdk.metrics._internal.measurement import Measurement
 from opentelemetry.sdk.metrics._internal.metric_reader_storage import (
+    _DEFAULT_VIEW,
     MetricReaderStorage,
 )
 from opentelemetry.sdk.metrics._internal.point import (
@@ -24,6 +26,7 @@ from opentelemetry.sdk.metrics._internal.point import (
     ScopeMetrics,
 )
 from opentelemetry.sdk.resources import Resource
+from opentelemetry.util._stability import _Stability
 
 _logger = getLogger(__name__)
 
@@ -47,6 +50,12 @@ class MeasurementConsumer(ABC):
         timeout_millis: float = 10_000,
     ) -> MetricsData | None:
         pass
+
+    def _is_instrument_enabled(
+        self,
+        instrument: "opentelemetry.sdk.metrics._internal.instrument._Instrument",
+    ) -> bool:
+        return True
 
 
 class SynchronousMeasurementConsumer(MeasurementConsumer):
@@ -87,6 +96,44 @@ class SynchronousMeasurementConsumer(MeasurementConsumer):
     ) -> None:
         with self._lock:
             self._async_instruments.append(instrument)
+
+    def _is_instrument_enabled(
+        self,
+        instrument: "opentelemetry.sdk.metrics._internal.instrument._Instrument",
+    ) -> bool:
+        # pylint: disable=protected-access
+        if self._reader_storages:
+            return any(
+                reader_storage._is_instrument_enabled(instrument)
+                for reader_storage in self._reader_storages.values()
+            )
+        matching_views = [
+            view
+            for view in self._sdk_config.views
+            if view._match(instrument)
+            and MetricReaderStorage._check_view_instrument_compatibility(view, instrument)
+        ] or [_DEFAULT_VIEW]
+
+        opt_in = getattr(instrument, "_opt_in", False) is True
+        stability = getattr(instrument, "_stability", _Stability.STABLE)
+        below_min_stability = (
+            isinstance(stability, _Stability)
+            and isinstance(self._sdk_config._minimum_stability, _Stability)
+            and stability < self._sdk_config._minimum_stability
+        )
+        for view in matching_views:
+            view_enabled = getattr(view, "_enabled", None)
+            if view_enabled is False:
+                continue
+            if view_enabled is True:
+                if not isinstance(view._aggregation, DropAggregation):
+                    return True
+                continue
+            if opt_in or below_min_stability:
+                continue
+            if not isinstance(view._aggregation, DropAggregation):
+                return True
+        return False
 
     def collect(
         self,

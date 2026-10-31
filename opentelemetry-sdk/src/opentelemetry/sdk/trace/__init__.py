@@ -73,6 +73,7 @@ from opentelemetry.trace import NoOpTracer, SpanContext
 from opentelemetry.trace.status import Status, StatusCode
 from opentelemetry.util import types
 from opentelemetry.util._decorator import _agnosticcontextmanager
+from opentelemetry.util._stability import _Stability
 
 logger = logging.getLogger(__name__)
 
@@ -1131,6 +1132,7 @@ class Tracer(trace_api.Tracer):
         *,
         meter_provider: metrics_api.MeterProvider | None = None,
         _tracer_config: _TracerConfig | None = None,
+        _minimum_stability: _Stability = _Stability.STABLE,
     ) -> None:
         self.sampler = sampler
         self.resource = resource
@@ -1140,6 +1142,7 @@ class Tracer(trace_api.Tracer):
         self._span_limits = span_limits
         self._instrumentation_scope = instrumentation_scope
         self._tracer_config = _tracer_config or _TracerConfig.default()
+        self._minimum_stability = _minimum_stability
 
         meter_provider = meter_provider or metrics_api.get_meter_provider()
         self._tracer_metrics = create_tracer_metrics(
@@ -1153,9 +1156,12 @@ class Tracer(trace_api.Tracer):
     def _set_resource(self, resource: Resource) -> None:
         self.resource = resource
 
-    def _is_enabled(self) -> bool:
+    def _is_enabled(
+        self,
+        _stability: _Stability = _Stability.STABLE,
+    ) -> bool:
         """If the tracer is not enabled, start_span will create a NonRecordingSpan"""
-        return self._tracer_config.is_enabled
+        return self._tracer_config.is_enabled and _stability >= self._minimum_stability
 
     @_agnosticcontextmanager  # pylint: disable=protected-access
     def start_as_current_span(
@@ -1169,6 +1175,7 @@ class Tracer(trace_api.Tracer):
         record_exception: bool = True,
         set_status_on_exception: bool = True,
         end_on_exit: bool = True,
+        _stability: _Stability = _Stability.STABLE,
     ) -> Iterator[trace_api.Span]:
         span = self.start_span(
             name=name,
@@ -1179,6 +1186,7 @@ class Tracer(trace_api.Tracer):
             start_time=start_time,
             record_exception=record_exception,
             set_status_on_exception=set_status_on_exception,
+            _stability=_stability,
         )
         with trace_api.use_span(
             span,
@@ -1198,6 +1206,7 @@ class Tracer(trace_api.Tracer):
         start_time: int | None = None,
         record_exception: bool = True,
         set_status_on_exception: bool = True,
+        _stability: _Stability = _Stability.STABLE,
     ) -> trace_api.Span:
         links = links or ()
         parent_span_context = trace_api.get_current_span(context).get_span_context()
@@ -1205,7 +1214,7 @@ class Tracer(trace_api.Tracer):
         if parent_span_context is not None and not isinstance(parent_span_context, trace_api.SpanContext):
             raise TypeError("parent_span_context must be a SpanContext or None.")
 
-        if not self._is_enabled():
+        if not self._is_enabled(_stability):
             return trace_api.NonRecordingSpan(context=parent_span_context)
 
         # is_valid determines root span
@@ -1314,6 +1323,7 @@ class TracerProvider(trace_api.TracerProvider):
         *,
         meter_provider: metrics_api.MeterProvider | None = None,
         _tracer_configurator: _TracerConfiguratorT | None = None,
+        _minimum_stability: _Stability = _Stability.STABLE,
     ) -> None:
         self._active_span_processor = active_span_processor or SynchronousMultiSpanProcessor()
         if id_generator is None:
@@ -1332,6 +1342,7 @@ class TracerProvider(trace_api.TracerProvider):
         self._disabled = disabled.lower().strip() == "true"
         self._atexit_handler = None
         self._meter_provider = meter_provider
+        self._minimum_stability = _minimum_stability
 
         if shutdown_on_exit:
             self._atexit_handler = atexit.register(self.shutdown)
@@ -1435,6 +1446,7 @@ class TracerProvider(trace_api.TracerProvider):
                 instrumentation_scope,
                 meter_provider=self._meter_provider,
                 _tracer_config=tracer_config,
+                _minimum_stability=self._minimum_stability,
             )
             self._tracers[instrumentation_scope] = tracer
 

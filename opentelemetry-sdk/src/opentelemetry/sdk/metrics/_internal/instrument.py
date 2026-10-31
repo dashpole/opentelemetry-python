@@ -32,6 +32,7 @@ from opentelemetry.metrics._internal.instrument import (
     _MetricsHistogramAdvisory,
 )
 from opentelemetry.sdk.metrics._internal.measurement import Measurement
+from opentelemetry.util._stability import _Stability
 from opentelemetry.util.types import Attributes
 
 if TYPE_CHECKING:
@@ -69,6 +70,8 @@ class _Synchronous(_Instrument, Synchronous):
         description: str = "",
         *,
         _meter_config: _ProxyMeterConfig | None = None,
+        _stability: _Stability = _Stability.STABLE,
+        _opt_in: bool = False,
     ):
         # pylint: disable=no-member
         result = self._check_name_unit_description(name, unit, description)
@@ -91,10 +94,21 @@ class _Synchronous(_Instrument, Synchronous):
         self.instrumentation_scope = instrumentation_scope
         self._measurement_consumer = measurement_consumer
         self._meter_config = _meter_config
+        self._stability = _stability
+        self._opt_in = _opt_in
         super().__init__(name, unit=unit, description=description)
 
     def _is_enabled(self) -> bool:
-        return self._meter_config is None or self._meter_config.is_enabled
+        if self._meter_config is not None and not self._meter_config.is_enabled:
+            return False
+        is_instrument_enabled = getattr(
+            self._measurement_consumer, "_is_instrument_enabled", None
+        )
+        if callable(is_instrument_enabled):
+            result = is_instrument_enabled(self)
+            if isinstance(result, bool):
+                return result
+        return True
 
 
 class _Asynchronous(_Instrument, Asynchronous):
@@ -108,6 +122,8 @@ class _Asynchronous(_Instrument, Asynchronous):
         description: str = "",
         *,
         _meter_config: _ProxyMeterConfig | None = None,
+        _stability: _Stability = _Stability.STABLE,
+        _opt_in: bool = False,
     ):
         # pylint: disable=no-member
         result = self._check_name_unit_description(name, unit, description)
@@ -130,6 +146,8 @@ class _Asynchronous(_Instrument, Asynchronous):
         self.instrumentation_scope = instrumentation_scope
         self._measurement_consumer = measurement_consumer
         self._meter_config = _meter_config
+        self._stability = _stability
+        self._opt_in = _opt_in
         super().__init__(name, callbacks, unit=unit, description=description)
 
         self._callbacks: list[CallbackT] = []
@@ -154,7 +172,16 @@ class _Asynchronous(_Instrument, Asynchronous):
                     self._callbacks.append(callback)
 
     def _is_enabled(self) -> bool:
-        return self._meter_config is None or self._meter_config.is_enabled
+        if self._meter_config is not None and not self._meter_config.is_enabled:
+            return False
+        is_instrument_enabled = getattr(
+            self._measurement_consumer, "_is_instrument_enabled", None
+        )
+        if callable(is_instrument_enabled):
+            result = is_instrument_enabled(self)
+            if isinstance(result, bool):
+                return result
+        return True
 
     def callback(self, callback_options: CallbackOptions) -> Iterable[Measurement]:
         if not self._is_enabled():
@@ -278,6 +305,8 @@ class Histogram(_Synchronous, APIHistogram):
         explicit_bucket_boundaries_advisory: Sequence[float] | None = None,
         *,
         _meter_config: _ProxyMeterConfig | None = None,
+        _stability: _Stability = _Stability.STABLE,
+        _opt_in: bool = False,
     ):
         super().__init__(
             name,
@@ -286,6 +315,8 @@ class Histogram(_Synchronous, APIHistogram):
             instrumentation_scope=instrumentation_scope,
             measurement_consumer=measurement_consumer,
             _meter_config=_meter_config,
+            _stability=_stability,
+            _opt_in=_opt_in,
         )
         self._advisory = _MetricsHistogramAdvisory(explicit_bucket_boundaries=explicit_bucket_boundaries_advisory)
 

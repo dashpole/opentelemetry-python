@@ -100,6 +100,7 @@ from opentelemetry.util import types
 from opentelemetry.util._decorator import _agnosticcontextmanager
 from opentelemetry.util._once import Once
 from opentelemetry.util._providers import _load_provider
+from opentelemetry.util._stability import _Stability
 
 logger = getLogger(__name__)
 
@@ -282,6 +283,7 @@ class Tracer(ABC):
         start_time: int | None = None,
         record_exception: bool = True,
         set_status_on_exception: bool = True,
+        _stability: _Stability = _Stability.STABLE,
     ) -> "Span":
         """Starts a span.
 
@@ -338,6 +340,7 @@ class Tracer(ABC):
         record_exception: bool = True,
         set_status_on_exception: bool = True,
         end_on_exit: bool = True,
+        _stability: _Stability = _Stability.STABLE,
     ) -> Iterator["Span"]:
         """Context manager for creating a new span and set it
         as the current span in this tracer's context.
@@ -400,6 +403,12 @@ class Tracer(ABC):
             The newly-created span.
         """
 
+    def _is_enabled(
+        self,
+        _stability: _Stability = _Stability.STABLE,
+    ) -> bool:
+        return False
+
 
 class ProxyTracer(Tracer):
     # pylint: disable=W0222,signature-differs
@@ -440,6 +449,12 @@ class ProxyTracer(Tracer):
         with self._tracer.start_as_current_span(*args, **kwargs) as span:  # type: ignore
             yield span
 
+    def _is_enabled(
+        self,
+        _stability: _Stability = _Stability.STABLE,
+    ) -> bool:
+        return self._tracer._is_enabled(_stability=_stability)
+
 
 class NoOpTracer(Tracer):
     """The default Tracer, used when no Tracer implementation is available.
@@ -457,6 +472,7 @@ class NoOpTracer(Tracer):
         start_time: int | None = None,
         record_exception: bool = True,
         set_status_on_exception: bool = True,
+        _stability: _Stability = _Stability.STABLE,
     ) -> "Span":
         current_span = get_current_span(context)
         if isinstance(current_span, NonRecordingSpan):
@@ -484,6 +500,7 @@ class NoOpTracer(Tracer):
         record_exception: bool = True,
         set_status_on_exception: bool = True,
         end_on_exit: bool = True,
+        _stability: _Stability = _Stability.STABLE,
     ) -> Iterator["Span"]:
         span = self.start_span(
             name=name,
@@ -494,6 +511,7 @@ class NoOpTracer(Tracer):
             start_time=start_time,
             record_exception=record_exception,
             set_status_on_exception=set_status_on_exception,
+            _stability=_stability,
         )
         with use_span(
             span,
@@ -502,6 +520,12 @@ class NoOpTracer(Tracer):
             set_status_on_exception=set_status_on_exception,
         ) as span:
             yield span
+
+    def _is_enabled(
+        self,
+        _stability: _Stability = _Stability.STABLE,
+    ) -> bool:
+        return False
 
 
 @deprecated("You should use NoOpTracer. Deprecated since version 1.9.0.")
@@ -650,6 +674,7 @@ __all__ = [
     "TraceState",
     "Tracer",
     "TracerProvider",
+    "_Stability",
     "format_span_id",
     "format_trace_id",
     "get_current_span",

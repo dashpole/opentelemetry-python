@@ -66,6 +66,7 @@ from opentelemetry.metrics._internal.instrument import (
 )
 from opentelemetry.util._once import Once
 from opentelemetry.util._providers import _load_provider
+from opentelemetry.util._stability import _Stability
 from opentelemetry.util.types import (
     Attributes,
 )
@@ -285,6 +286,9 @@ class Meter(ABC):
         name: str,
         unit: str = "",
         description: str = "",
+        *,
+        _stability: _Stability = _Stability.STABLE,
+        _opt_in: bool = False,
     ) -> Counter:
         """Creates a `Counter` instrument
 
@@ -301,6 +305,9 @@ class Meter(ABC):
         name: str,
         unit: str = "",
         description: str = "",
+        *,
+        _stability: _Stability = _Stability.STABLE,
+        _opt_in: bool = False,
     ) -> UpDownCounter:
         """Creates an `UpDownCounter` instrument
 
@@ -318,6 +325,9 @@ class Meter(ABC):
         callbacks: Sequence[CallbackT] | None = None,
         unit: str = "",
         description: str = "",
+        *,
+        _stability: _Stability = _Stability.STABLE,
+        _opt_in: bool = False,
     ) -> ObservableCounter:
         """Creates an `ObservableCounter` instrument
 
@@ -463,6 +473,8 @@ class Meter(ABC):
         description: str = "",
         *,
         explicit_bucket_boundaries_advisory: Sequence[float] | None = None,
+        _stability: _Stability = _Stability.STABLE,
+        _opt_in: bool = False,
     ) -> Histogram:
         """Creates a :class:`~opentelemetry.metrics.Histogram` instrument
 
@@ -478,6 +490,9 @@ class Meter(ABC):
         name: str,
         unit: str = "",
         description: str = "",
+        *,
+        _stability: _Stability = _Stability.STABLE,
+        _opt_in: bool = False,
     ) -> Gauge:  # pyright: ignore[reportReturnType]
         """Creates a ``Gauge`` instrument
 
@@ -496,6 +511,9 @@ class Meter(ABC):
         callbacks: Sequence[CallbackT] | None = None,
         unit: str = "",
         description: str = "",
+        *,
+        _stability: _Stability = _Stability.STABLE,
+        _opt_in: bool = False,
     ) -> ObservableGauge:
         """Creates an `ObservableGauge` instrument
 
@@ -516,6 +534,9 @@ class Meter(ABC):
         callbacks: Sequence[CallbackT] | None = None,
         unit: str = "",
         description: str = "",
+        *,
+        _stability: _Stability = _Stability.STABLE,
+        _opt_in: bool = False,
     ) -> ObservableUpDownCounter:
         """Creates an `ObservableUpDownCounter` instrument
 
@@ -557,16 +578,42 @@ class _ProxyMeter(Meter):
             for instrument in self._instruments:
                 instrument.on_meter_set(real_meter)
 
+    @staticmethod
+    def _advisory_kwargs(
+        _stability: _Stability = _Stability.STABLE,
+        _opt_in: bool = False,
+    ) -> dict[str, object]:
+        kwargs: dict[str, object] = {}
+        if _stability != _Stability.STABLE:
+            kwargs["_stability"] = _stability
+        if _opt_in:
+            kwargs["_opt_in"] = _opt_in
+        return kwargs
+
     def create_counter(
         self,
         name: str,
         unit: str = "",
         description: str = "",
+        *,
+        _stability: _Stability = _Stability.STABLE,
+        _opt_in: bool = False,
     ) -> Counter:
         with self._lock:
             if self._real_meter:
-                return self._real_meter.create_counter(name, unit, description)
-            proxy = _ProxyCounter(name, unit, description)
+                return self._real_meter.create_counter(
+                    name,
+                    unit,
+                    description,
+                    **self._advisory_kwargs(_stability, _opt_in),  # type: ignore[arg-type]
+                )
+            proxy = _ProxyCounter(
+                name,
+                unit,
+                description,
+                _stability=_stability,
+                _opt_in=_opt_in,
+            )
             self._instruments.append(proxy)
             return proxy
 
@@ -575,11 +622,25 @@ class _ProxyMeter(Meter):
         name: str,
         unit: str = "",
         description: str = "",
+        *,
+        _stability: _Stability = _Stability.STABLE,
+        _opt_in: bool = False,
     ) -> UpDownCounter:
         with self._lock:
             if self._real_meter:
-                return self._real_meter.create_up_down_counter(name, unit, description)
-            proxy = _ProxyUpDownCounter(name, unit, description)
+                return self._real_meter.create_up_down_counter(
+                    name,
+                    unit,
+                    description,
+                    **self._advisory_kwargs(_stability, _opt_in),  # type: ignore[arg-type]
+                )
+            proxy = _ProxyUpDownCounter(
+                name,
+                unit,
+                description,
+                _stability=_stability,
+                _opt_in=_opt_in,
+            )
             self._instruments.append(proxy)
             return proxy
 
@@ -589,11 +650,27 @@ class _ProxyMeter(Meter):
         callbacks: Sequence[CallbackT] | None = None,
         unit: str = "",
         description: str = "",
+        *,
+        _stability: _Stability = _Stability.STABLE,
+        _opt_in: bool = False,
     ) -> ObservableCounter:
         with self._lock:
             if self._real_meter:
-                return self._real_meter.create_observable_counter(name, callbacks, unit, description)
-            proxy = _ProxyObservableCounter(name, callbacks, unit=unit, description=description)
+                return self._real_meter.create_observable_counter(
+                    name,
+                    callbacks,
+                    unit,
+                    description,
+                    **self._advisory_kwargs(_stability, _opt_in),  # type: ignore[arg-type]
+                )
+            proxy = _ProxyObservableCounter(
+                name,
+                callbacks,
+                unit=unit,
+                description=description,
+                _stability=_stability,
+                _opt_in=_opt_in,
+            )
             self._instruments.append(proxy)
             return proxy
 
@@ -604,6 +681,8 @@ class _ProxyMeter(Meter):
         description: str = "",
         *,
         explicit_bucket_boundaries_advisory: Sequence[float] | None = None,
+        _stability: _Stability = _Stability.STABLE,
+        _opt_in: bool = False,
     ) -> Histogram:
         with self._lock:
             if self._real_meter:
@@ -612,8 +691,16 @@ class _ProxyMeter(Meter):
                     unit,
                     description,
                     explicit_bucket_boundaries_advisory=explicit_bucket_boundaries_advisory,
+                    **self._advisory_kwargs(_stability, _opt_in),  # type: ignore[arg-type]
                 )
-            proxy = _ProxyHistogram(name, unit, description, explicit_bucket_boundaries_advisory)
+            proxy = _ProxyHistogram(
+                name,
+                unit,
+                description,
+                explicit_bucket_boundaries_advisory,
+                _stability=_stability,
+                _opt_in=_opt_in,
+            )
             self._instruments.append(proxy)
             return proxy
 
@@ -622,11 +709,25 @@ class _ProxyMeter(Meter):
         name: str,
         unit: str = "",
         description: str = "",
+        *,
+        _stability: _Stability = _Stability.STABLE,
+        _opt_in: bool = False,
     ) -> Gauge:
         with self._lock:
             if self._real_meter:
-                return self._real_meter.create_gauge(name, unit, description)
-            proxy = _ProxyGauge(name, unit, description)
+                return self._real_meter.create_gauge(
+                    name,
+                    unit,
+                    description,
+                    **self._advisory_kwargs(_stability, _opt_in),  # type: ignore[arg-type]
+                )
+            proxy = _ProxyGauge(
+                name,
+                unit,
+                description,
+                _stability=_stability,
+                _opt_in=_opt_in,
+            )
             self._instruments.append(proxy)
             return proxy
 
@@ -636,11 +737,27 @@ class _ProxyMeter(Meter):
         callbacks: Sequence[CallbackT] | None = None,
         unit: str = "",
         description: str = "",
+        *,
+        _stability: _Stability = _Stability.STABLE,
+        _opt_in: bool = False,
     ) -> ObservableGauge:
         with self._lock:
             if self._real_meter:
-                return self._real_meter.create_observable_gauge(name, callbacks, unit, description)
-            proxy = _ProxyObservableGauge(name, callbacks, unit=unit, description=description)
+                return self._real_meter.create_observable_gauge(
+                    name,
+                    callbacks,
+                    unit,
+                    description,
+                    **self._advisory_kwargs(_stability, _opt_in),  # type: ignore[arg-type]
+                )
+            proxy = _ProxyObservableGauge(
+                name,
+                callbacks,
+                unit=unit,
+                description=description,
+                _stability=_stability,
+                _opt_in=_opt_in,
+            )
             self._instruments.append(proxy)
             return proxy
 
@@ -650,6 +767,9 @@ class _ProxyMeter(Meter):
         callbacks: Sequence[CallbackT] | None = None,
         unit: str = "",
         description: str = "",
+        *,
+        _stability: _Stability = _Stability.STABLE,
+        _opt_in: bool = False,
     ) -> ObservableUpDownCounter:
         with self._lock:
             if self._real_meter:
@@ -658,8 +778,16 @@ class _ProxyMeter(Meter):
                     callbacks,
                     unit,
                     description,
+                    **self._advisory_kwargs(_stability, _opt_in),  # type: ignore[arg-type]
                 )
-            proxy = _ProxyObservableUpDownCounter(name, callbacks, unit=unit, description=description)
+            proxy = _ProxyObservableUpDownCounter(
+                name,
+                callbacks,
+                unit=unit,
+                description=description,
+                _stability=_stability,
+                _opt_in=_opt_in,
+            )
             self._instruments.append(proxy)
             return proxy
 
@@ -675,6 +803,9 @@ class NoOpMeter(Meter):
         name: str,
         unit: str = "",
         description: str = "",
+        *,
+        _stability: _Stability = _Stability.STABLE,
+        _opt_in: bool = False,
     ) -> Counter:
         """Returns a no-op Counter."""
         status = self._register_instrument(name, NoOpCounter, unit, description)
@@ -694,6 +825,9 @@ class NoOpMeter(Meter):
         name: str,
         unit: str = "",
         description: str = "",
+        *,
+        _stability: _Stability = _Stability.STABLE,
+        _opt_in: bool = False,
     ) -> Gauge:
         """Returns a no-op Gauge."""
         status = self._register_instrument(name, NoOpGauge, unit, description)
@@ -712,6 +846,9 @@ class NoOpMeter(Meter):
         name: str,
         unit: str = "",
         description: str = "",
+        *,
+        _stability: _Stability = _Stability.STABLE,
+        _opt_in: bool = False,
     ) -> UpDownCounter:
         """Returns a no-op UpDownCounter."""
         status = self._register_instrument(name, NoOpUpDownCounter, unit, description)
@@ -731,6 +868,9 @@ class NoOpMeter(Meter):
         callbacks: Sequence[CallbackT] | None = None,
         unit: str = "",
         description: str = "",
+        *,
+        _stability: _Stability = _Stability.STABLE,
+        _opt_in: bool = False,
     ) -> ObservableCounter:
         """Returns a no-op ObservableCounter."""
         status = self._register_instrument(name, NoOpObservableCounter, unit, description)
@@ -756,6 +896,8 @@ class NoOpMeter(Meter):
         description: str = "",
         *,
         explicit_bucket_boundaries_advisory: Sequence[float] | None = None,
+        _stability: _Stability = _Stability.STABLE,
+        _opt_in: bool = False,
     ) -> Histogram:
         """Returns a no-op Histogram."""
         status = self._register_instrument(
@@ -786,6 +928,9 @@ class NoOpMeter(Meter):
         callbacks: Sequence[CallbackT] | None = None,
         unit: str = "",
         description: str = "",
+        *,
+        _stability: _Stability = _Stability.STABLE,
+        _opt_in: bool = False,
     ) -> ObservableGauge:
         """Returns a no-op ObservableGauge."""
         status = self._register_instrument(name, NoOpObservableGauge, unit, description)
@@ -810,6 +955,9 @@ class NoOpMeter(Meter):
         callbacks: Sequence[CallbackT] | None = None,
         unit: str = "",
         description: str = "",
+        *,
+        _stability: _Stability = _Stability.STABLE,
+        _opt_in: bool = False,
     ) -> ObservableUpDownCounter:
         """Returns a no-op ObservableUpDownCounter."""
         status = self._register_instrument(name, NoOpObservableUpDownCounter, unit, description)

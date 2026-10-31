@@ -79,6 +79,7 @@ from opentelemetry.trace import (
     format_span_id,
     format_trace_id,
 )
+from opentelemetry.util._stability import _Stability
 from opentelemetry.util.types import AnyValue, Attributes
 
 # pylint: disable=too-many-lines
@@ -747,6 +748,7 @@ class Logger(APILogger):
         logger_metrics: LoggerMetricsT,
         log_record_limits: LogRecordLimits | None = None,
         _logger_config: _LoggerConfig,
+        _minimum_stability: _Stability = _Stability.STABLE,
     ):
         super().__init__(
             instrumentation_scope.name,
@@ -760,6 +762,7 @@ class Logger(APILogger):
         self._logger_metrics = logger_metrics
         self._logger_config = _logger_config
         self._log_record_limits = log_record_limits or LogRecordLimits()
+        self._minimum_stability = _minimum_stability
 
     def enabled(
         self,
@@ -767,8 +770,9 @@ class Logger(APILogger):
         context: Context | None = None,
         severity_number: SeverityNumber | None = None,
         event_name: str | None = None,
+        _stability: _Stability = _Stability.STABLE,
     ) -> bool:
-        if not self._logger_config.is_enabled:
+        if not self._logger_config.is_enabled or _stability < self._minimum_stability:
             return False
         return self._multi_log_record_processor.enabled(
             context=context,
@@ -805,11 +809,12 @@ class Logger(APILogger):
         attributes: Attributes = None,
         event_name: str | None = None,
         exception: BaseException | None = None,
+        _stability: _Stability = _Stability.STABLE,
     ) -> None:
         """Emits the :class:`ReadWriteLogRecord` by setting instrumentation scope
         and forwarding to the processor.
         """
-        if not self._logger_config.is_enabled:
+        if not self._logger_config.is_enabled or _stability < self._minimum_stability:
             return
         self._logger_metrics.emit_log()
         instrumentation_scope = self._instrumentation_scope
@@ -899,6 +904,7 @@ class LoggerProvider(APILoggerProvider):
         meter_provider: MeterProvider | None = None,
         log_record_limits: LogRecordLimits | None = None,
         _logger_configurator: _LoggerConfiguratorT | None = None,
+        _minimum_stability: _Stability = _Stability.STABLE,
     ):
         if resource is None:
             self._resource = Resource.create({})
@@ -913,6 +919,7 @@ class LoggerProvider(APILoggerProvider):
         self._disabled = disabled.lower().strip() == "true"
         self._logger_configurator = _logger_configurator or _default_logger_configurator
         self._log_record_limits = log_record_limits or LogRecordLimits()
+        self._minimum_stability = _minimum_stability
         self._at_exit_handler = None
         if shutdown_on_exit:
             self._at_exit_handler = atexit.register(self.shutdown)
@@ -961,6 +968,7 @@ class LoggerProvider(APILoggerProvider):
             logger_metrics=self._logger_metrics,
             _logger_config=self._apply_logger_configurator(scope),
             log_record_limits=self._log_record_limits,
+            _minimum_stability=self._minimum_stability,
         )
 
     def _get_logger_cached(

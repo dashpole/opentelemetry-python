@@ -33,6 +33,7 @@ from opentelemetry._logs._internal import (
     set_logger_provider,
 )
 from opentelemetry._logs.severity import SeverityNumber
+from opentelemetry.util._stability import _Stability
 
 __all__ = [
     "LogRecord",
@@ -41,6 +42,7 @@ __all__ = [
     "NoOpLogger",
     "NoOpLoggerProvider",
     "SeverityNumber",
+    "_Stability",
     "get_logger",
     "get_logger_provider",
     "set_logger_provider",
