@@ -407,6 +407,7 @@ class Tracer(ABC):
         self,
         key: str,
         stability: _Stability = _Stability.STABLE,
+        context: Context | None = None,
     ) -> bool:
         return False
 
@@ -454,8 +455,9 @@ class ProxyTracer(Tracer):
         self,
         key: str,
         stability: _Stability = _Stability.STABLE,
+        context: Context | None = None,
     ) -> bool:
-        return self._tracer._attribute_enabled(key, stability)
+        return self._tracer._attribute_enabled(key, stability, context=context)
 
 
 class NoOpTracer(Tracer):
@@ -527,6 +529,7 @@ class NoOpTracer(Tracer):
         self,
         key: str,
         stability: _Stability = _Stability.STABLE,
+        context: Context | None = None,
     ) -> bool:
         return False
 

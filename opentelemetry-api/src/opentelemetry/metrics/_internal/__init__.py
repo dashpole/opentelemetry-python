@@ -38,6 +38,7 @@ from os import environ
 from threading import Lock
 from typing import cast
 
+from opentelemetry.context import Context
 from opentelemetry.environment_variables import OTEL_PYTHON_METER_PROVIDER
 from opentelemetry.metrics._internal.instrument import (
     CallbackT,
@@ -554,6 +555,7 @@ class Meter(ABC):
         self,
         key: str,
         stability: _Stability = _Stability.STABLE,
+        context: Context | None = None,
     ) -> bool:
         return False
 
@@ -802,10 +804,11 @@ class _ProxyMeter(Meter):
         self,
         key: str,
         stability: _Stability = _Stability.STABLE,
+        context: Context | None = None,
     ) -> bool:
         with self._lock:
             if self._real_meter:
-                return self._real_meter._attribute_enabled(key, stability)
+                return self._real_meter._attribute_enabled(key, stability, context=context)
             return False
 
 
@@ -997,6 +1000,7 @@ class NoOpMeter(Meter):
         self,
         key: str,
         stability: _Stability = _Stability.STABLE,
+        context: Context | None = None,
     ) -> bool:
         return False
 

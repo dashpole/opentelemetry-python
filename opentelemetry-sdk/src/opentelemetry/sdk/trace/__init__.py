@@ -1175,6 +1175,7 @@ class Tracer(trace_api.Tracer):
         self,
         key: str,  # pylint: disable=unused-argument
         stability: _Stability = _Stability.STABLE,
+        context: context_api.Context | None = None,  # pylint: disable=unused-argument
     ) -> bool:
         if not self._tracer_config.is_enabled or not self._has_span_processors():
             return False

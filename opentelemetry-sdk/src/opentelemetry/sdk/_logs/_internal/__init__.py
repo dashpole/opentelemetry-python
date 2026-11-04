@@ -793,6 +793,7 @@ class Logger(APILogger):
         self,
         key: str,  # pylint: disable=unused-argument
         stability: _Stability = _Stability.STABLE,
+        context: Context | None = None,  # pylint: disable=unused-argument
     ) -> bool:
         if not self._logger_config.is_enabled or not self._has_log_record_processors():
             return False

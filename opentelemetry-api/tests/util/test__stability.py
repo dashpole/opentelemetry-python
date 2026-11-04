@@ -32,7 +32,7 @@ class TestStabilityAPI(unittest.TestCase):
         real_tracer._attribute_enabled.return_value = True
         proxy_tracer._real_tracer = real_tracer
         self.assertTrue(proxy_tracer._attribute_enabled("k", _Stability.DEVELOPMENT))
-        real_tracer._attribute_enabled.assert_called_once_with("k", _Stability.DEVELOPMENT)
+        real_tracer._attribute_enabled.assert_called_once_with("k", _Stability.DEVELOPMENT, context=None)
 
     def test_noop_and_proxy_meter_stability_and_opt_in(self):
         noop_meter = metrics.NoOpMeter("scope")
@@ -59,7 +59,7 @@ class TestStabilityAPI(unittest.TestCase):
             _opt_in=True,
         )
         self.assertTrue(proxy_meter._attribute_enabled("k", _Stability.DEVELOPMENT))
-        real_meter._attribute_enabled.assert_called_once_with("k", _Stability.DEVELOPMENT)
+        real_meter._attribute_enabled.assert_called_once_with("k", _Stability.DEVELOPMENT, context=None)
 
     def test_noop_and_proxy_logger_stability(self):
         noop_logger = _logs.NoOpLogger("scope")
@@ -90,7 +90,7 @@ class TestStabilityAPI(unittest.TestCase):
             _stability=_Stability.DEVELOPMENT,
         )
         self.assertTrue(proxy_logger._attribute_enabled("k", _Stability.DEVELOPMENT))
-        real_logger._attribute_enabled.assert_called_once_with("k", _Stability.DEVELOPMENT)
+        real_logger._attribute_enabled.assert_called_once_with("k", _Stability.DEVELOPMENT, context=None)
         record = _logs.LogRecord(body="dev")
         proxy_logger.emit(record, _stability=_Stability.DEVELOPMENT)
         real_logger.emit.assert_called_once_with(record, _stability=_Stability.DEVELOPMENT)

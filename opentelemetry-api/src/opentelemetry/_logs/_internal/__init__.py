@@ -217,6 +217,7 @@ class Logger(ABC):
         self,
         key: str,
         stability: _Stability = _Stability.STABLE,
+        context: Context | None = None,
     ) -> bool:
         return False
 
@@ -282,6 +283,7 @@ class NoOpLogger(Logger):
         self,
         key: str,
         stability: _Stability = _Stability.STABLE,
+        context: Context | None = None,
     ) -> bool:
         return False
 
@@ -392,8 +394,9 @@ class ProxyLogger(Logger):
         self,
         key: str,
         stability: _Stability = _Stability.STABLE,
+        context: Context | None = None,
     ) -> bool:
-        return self._logger._attribute_enabled(key, stability)
+        return self._logger._attribute_enabled(key, stability, context=context)
 
 
 class LoggerProvider(ABC):

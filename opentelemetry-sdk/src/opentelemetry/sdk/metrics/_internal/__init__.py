@@ -13,6 +13,7 @@ from time import time_ns
 
 # This kind of import is needed to avoid Sphinx errors.
 import opentelemetry.sdk.metrics
+from opentelemetry.context import Context
 from opentelemetry.metrics import Counter as APICounter
 from opentelemetry.metrics import Histogram as APIHistogram
 from opentelemetry.metrics import Meter as APIMeter
@@ -118,6 +119,7 @@ class Meter(APIMeter):
         self,
         key: str,
         stability: _Stability = _Stability.STABLE,
+        context: Context | None = None,  # pylint: disable=unused-argument
     ) -> bool:
         if not self._meter_config.is_enabled:
             return False
